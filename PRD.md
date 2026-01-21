@@ -19,10 +19,11 @@ An intelligent todo application that automatically generates actionable tasks by
 **This PRD is designed for incremental development with Claude Code by someone with no coding or DevOps background.**
 
 ### Key Principles:
-- **Zero DevOps**: Fully managed stack (Vercel, Supabase, OpenAI API)
+- **Zero DevOps**: Fully managed stack (Vercel, Supabase, Claude API)
 - **Ship Early, Ship Often**: Each phase is a working product you can use
 - **Learn by Building**: Start simple, add complexity gradually
 - **Vibe Coding**: Work with Claude Code step-by-step, no prior knowledge needed
+- **Speed with v0**: Optional AI UI generator for beautiful components in seconds
 - **Real Users Fast**: Get to beta users within 4-6 weeks
 
 ### What You'll Build:
@@ -272,6 +273,17 @@ Modern professionals juggle multiple collaboration platforms (Slack, Monday.com,
   - Built-in analytics
 - **Cost**: Free tier covers development + early users
 
+#### UI Generation: v0.dev (Optional but Recommended)
+- **Why**: AI-powered UI component generation from Vercel, speeds up frontend development
+- **What you get**:
+  - Beautiful React/Next.js components from text prompts
+  - Modern Tailwind CSS styling
+  - Responsive designs out of the box
+  - Copy-paste ready code
+- **When to use**: Task cards, forms, layouts, onboarding flows
+- **Workflow**: Generate UI in v0 → Copy code → Paste to Claude Code → Claude integrates with backend
+- **Cost**: Free (included with Vercel)
+
 #### Async Jobs: Vercel Cron + Supabase Functions
 - **Why**: No separate queue infrastructure needed
 - **What you get**:
@@ -460,7 +472,36 @@ tasks (
 )
 ```
 
-**Claude Code Prompts**:
+**Development Approach** (Choose one):
+
+**Option A: v0 + Claude Code** (Recommended - Faster, Better Design):
+```
+Step 1 - Generate UI with v0.dev:
+Go to v0.dev and use these prompts:
+
+"Create a modern todo task card component with:
+- Title and description text
+- Checkbox to mark complete
+- Delete button with trash icon
+- Clean, minimal design with shadows
+- Built with React, TypeScript, Tailwind CSS"
+
+"Create a task creation form with:
+- Title input field
+- Description textarea
+- Add task button
+- Modern, clean design
+- Form validation styling"
+
+Step 2 - Integrate with Claude Code:
+"I have these v0 components [paste code]. Integrate them into my Next.js app
+and connect to Supabase to fetch and create tasks"
+
+"Make the task list responsive - mobile first with Tailwind"
+"Add filters to show All / Active / Completed tasks"
+```
+
+**Option B: Pure Claude Code** (Simpler, One Tool):
 ```
 "Create a task list UI with cards showing title and description"
 "Add a form to create new tasks with title and description inputs"
@@ -715,6 +756,28 @@ ${basePrompt}
 - Help documentation (inline)
 
 **Claude Code Prompts**:
+
+**With v0 (Recommended)**:
+```
+v0.dev:
+"3-step onboarding wizard with progress bar, illustrations for each step
+(Connect, Configure, Success), next/back buttons, skip option"
+
+"Empty state component with friendly illustration, message 'No tasks yet!',
+subtitle 'Connect Slack to get started', and CTA button"
+
+"Loading skeleton for task list - 5 animated shimmer cards"
+
+Claude Code:
+"Integrate this v0 onboarding flow and add logic to save user preferences"
+"Add this empty state component and show it when tasks array is empty"
+"Implement error boundaries and retry logic for failed API calls"
+"Add PostHog analytics to track task creation, completion, and retention"
+"Create a settings page with channel selection and sensitivity controls"
+"Optimize database queries and add indexing for performance"
+```
+
+**Without v0**:
 ```
 "Create a 3-step onboarding flow with progress indicator"
 "Add empty states with illustrations when user has no tasks"
@@ -898,6 +961,7 @@ ${basePrompt}
 - **Hosting**: Vercel Pro (you already have this)
 - **Database**: Supabase Pro (you already have this)
 - **AI/ML**: Claude API (claude-3-5-haiku for speed, claude-3-5-sonnet for complex cases)
+- **UI Generation**: v0.dev (optional but recommended for faster UI development)
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion
 - **Analytics**: PostHog (open source alternative to Mixpanel)
@@ -914,7 +978,41 @@ ${basePrompt}
 
 ---
 
-## 🤖 Working with Claude Code - A Guide
+## 🤖 Working with Claude Code + v0 - A Guide
+
+### Combined Workflow: v0 + Claude Code
+
+**Use v0 for**: Visual UI components (cards, forms, modals, layouts)
+**Use Claude Code for**: Logic, database, APIs, integrations
+
+**Recommended Workflow**:
+1. **Design Phase**: Generate UI components in v0.dev
+2. **Integration Phase**: Give components to Claude Code to wire up
+3. **Logic Phase**: Claude Code adds functionality, database connections
+4. **Result**: Beautiful UI + Working backend, faster than either alone
+
+### Example: Creating a Task Card
+
+**Step 1 - v0.dev**:
+```
+Prompt: "Modern task card component with checkbox, title, description,
+delete button. Use Tailwind CSS, React, TypeScript. Clean minimalist design
+with subtle shadows and hover effects"
+
+→ v0 generates beautiful component code
+→ Copy the code
+```
+
+**Step 2 - Claude Code**:
+```
+"I have this task card component from v0 [paste code].
+Add it to my project and connect it to fetch tasks from Supabase.
+When checkbox is clicked, update task status in database.
+When delete is clicked, show confirmation and delete from Supabase."
+
+→ Claude Code integrates UI with your backend
+→ Fully working feature
+```
 
 ### How to Structure Your Prompts
 
@@ -957,7 +1055,54 @@ ${basePrompt}
    "Commit these changes and push to deploy"
    ```
 
-### Common Claude Code Prompts Library
+### Common Prompts Library
+
+#### v0.dev UI Generation Prompts
+
+**Task Components**:
+```
+"Modern todo task card with checkbox, title, description, delete button,
+timestamp. Clean design with Tailwind CSS, React TypeScript"
+
+"Task list container with search bar, filter buttons (All/Active/Completed),
+and empty state illustration. Modern, spacious layout"
+
+"Task creation form modal with title input, description textarea, priority
+dropdown, cancel and save buttons. Smooth animations"
+```
+
+**Onboarding & Forms**:
+```
+"3-step onboarding wizard with progress indicator, next/back buttons,
+welcoming illustrations. Mobile responsive"
+
+"Settings page with toggles for notifications, channel selection checkboxes,
+quiet hours time picker. Clean organized layout"
+```
+
+**General UI**:
+```
+"Loading skeleton for task list - 5 placeholder cards with animated shimmer"
+
+"Empty state component with illustration, friendly message, and call-to-action
+button for when user has no tasks"
+
+"Notification toast component for success/error messages. Slide in from top,
+auto-dismiss after 3s"
+```
+
+#### Claude Code Integration Prompts
+
+**After getting v0 code**:
+```
+"Integrate this v0 component [paste code] into my Next.js app at /components/TaskCard.tsx"
+
+"This is my v0 form component [paste]. Connect it to create tasks in Supabase
+when submitted. Add form validation and error handling"
+
+"Take this v0 modal [paste] and make it show when user clicks Add Task button.
+Pass task data to parent component on save"
+```
 
 #### Setup & Configuration
 ```
@@ -1067,6 +1212,15 @@ ${basePrompt}
 5. **Celebrate wins**: When something works, deploy it and use it!
 6. **Take breaks**: Stuck? Ask Claude to summarize what you've built and what's next
 
+### Pro Tips for v0 + Claude Code
+
+1. **UI First**: When starting a feature, generate the UI in v0 first, then add logic with Claude Code
+2. **Be Specific**: v0 works best with detailed prompts - mention colors, spacing, specific UI elements
+3. **Iterate in v0**: Use v0's chat to refine the design before copying to your project
+4. **Copy Clean**: v0 generates complete components - copy the whole thing, don't try to merge manually
+5. **Let Claude Connect**: Don't worry about connecting v0 code to your database - that's what Claude Code does best
+6. **Save Good Prompts**: When v0 generates something you love, save that prompt for similar components later
+
 ---
 
 ### Essential Resources
@@ -1076,6 +1230,7 @@ ${basePrompt}
 - Supabase Docs: https://supabase.com/docs
 - Tailwind CSS: https://tailwindcss.com/docs
 - Vercel Deployment: https://vercel.com/docs
+- v0.dev: https://v0.dev (AI UI generation)
 
 **API Documentation**:
 - Slack API: https://api.slack.com/

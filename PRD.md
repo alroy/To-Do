@@ -254,13 +254,13 @@ Modern professionals juggle multiple collaboration platforms (Slack, Monday.com,
   - Auto-generated REST API
 - **Setup**: ~10 minutes with Claude Code
 
-#### AI/ML: OpenAI API (gpt-4o-mini)
-- **Why**: No model training, simple API calls, cheap (~$0.001/task)
+#### AI/ML: Claude API (claude-3-5-haiku)
+- **Why**: No model training, simple API calls, excellent structured outputs, cost-effective (~$0.001/task)
 - **What you get**:
   - Task detection from messages (intent classification)
   - Entity extraction (people, dates, urgency)
-  - Smart summaries
-- **Alternative**: Anthropic Claude API (similar approach)
+  - Smart summaries with reliable JSON output
+- **Cost**: $0.80 per million input tokens, $4 per million output tokens
 
 #### Deployment: Vercel
 - **Why**: Zero-config deployment for Next.js
@@ -294,14 +294,14 @@ Modern professionals juggle multiple collaboration platforms (Slack, Monday.com,
 │  Vercel (Next.js API Routes)                    │
 │  - /api/slack/webhook                           │
 │  - /api/tasks (CRUD)                            │
-│  - /api/detect (OpenAI integration)             │
+│  - /api/detect (Claude API integration)         │
 └─────┬───────────────┬───────────────────────────┘
       │               │
       ↓               ↓
 ┌──────────────┐  ┌──────────────────────┐
 │  Supabase    │  │  External APIs       │
 │  - Database  │  │  - Slack API         │
-│  - Auth      │  │  - OpenAI API        │
+│  - Auth      │  │  - Claude API        │
 │  - Real-time │  │  - Monday.com (later)│
 └──────────────┘  └──────────────────────┘
 ```
@@ -510,7 +510,7 @@ alter table tasks add column confidence_score decimal; -- 0.0 to 1.0
 
 **Features**:
 1. **OAuth Flow**: "Connect Slack" button → OAuth → Store token
-2. **Simple Detection**: Use OpenAI API to analyze if message is actionable
+2. **Simple Detection**: Use Claude API to analyze if message is actionable
 3. **Task Creation**: Auto-create tasks from detected messages
 4. **Task Card Updates**: Show Slack icon, channel name, link to thread
 
@@ -518,21 +518,33 @@ alter table tasks add column confidence_score decimal; -- 0.0 to 1.0
 ```
 "Add Slack OAuth using Supabase Auth - show me the button and flow"
 "Create an API route /api/slack/webhook to receive Slack messages"
-"Integrate OpenAI API to detect if a Slack message is an action item for the user"
+"Integrate Anthropic Claude API to detect if a Slack message is an action item for the user"
 "When a message mentions the user with action verbs, create a task automatically"
 "Add Slack metadata to task cards - show channel name, timestamp, and link to thread"
 "Add a 'View in Slack' button that opens the original thread"
 ```
 
-**OpenAI Prompt Example** (for detection):
+**Claude API Prompt Example** (for detection):
 ```typescript
-const prompt = `Analyze this Slack message and determine if it's an action item for ${userName}.
+// Using Anthropic Claude API
+import Anthropic from '@anthropic-ai/sdk';
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const message = await anthropic.messages.create({
+  model: "claude-3-5-haiku-20241022",
+  max_tokens: 1024,
+  messages: [{
+    role: "user",
+    content: `Analyze this Slack message and determine if it's an action item for ${userName}.
 
 Message: "${messageText}"
 Channel: ${channelName}
 From: ${senderName}
 
-Is this an actionable task for ${userName}? Respond with JSON:
+Is this an actionable task for ${userName}? Respond with JSON only:
 {
   "is_task": boolean,
   "confidence": 0.0 to 1.0,
@@ -542,6 +554,10 @@ Is this an actionable task for ${userName}? Respond with JSON:
 }
 
 Only mark as task if user is mentioned AND there's a clear action or question for them.`
+  }]
+});
+
+const response = JSON.parse(message.content[0].text);
 ```
 
 **Success Criteria**:
@@ -640,7 +656,7 @@ user_preferences (
 2. **Adaptive Detection**:
    - Boost confidence for patterns that lead to completions
    - Lower confidence for patterns that get dismissed
-   - Personalize OpenAI prompts based on learned patterns
+   - Personalize Claude API prompts based on learned patterns
 
 3. **Proactive Suggestions**:
    - "Should I stop monitoring #random?" (if always dismissed)
@@ -675,7 +691,7 @@ ${basePrompt}
 "Adjust task confidence scores based on historical user feedback"
 "Create a weekly summary showing what the app learned about user's preferences"
 "Add proactive suggestions when user dismisses many tasks from same source"
-"Personalize OpenAI detection prompt based on user's completion patterns"
+"Personalize Claude API detection prompt based on user's completion patterns"
 ```
 
 **Success Criteria**:
@@ -849,25 +865,25 @@ ${basePrompt}
 ### 💰 Cost Estimates (Per Month)
 
 #### Development Phase (0-100 users)
-- **Vercel**: $0 (Hobby tier)
-- **Supabase**: $0 (Free tier - 500MB DB, 2GB bandwidth)
-- **OpenAI API**: ~$5-10 (gpt-4o-mini at $0.15/1M tokens)
+- **Vercel Pro**: $20/month (you already have this)
+- **Supabase Pro**: $25/month (you already have this)
+- **Claude API**: ~$5-10 (claude-3-5-haiku at $0.80/$4 per 1M tokens)
 - **Domain**: $10/year (optional)
-- **Total**: ~$1-2/month
+- **Total**: ~$45-55/month (infrastructure covered by your existing accounts)
 
 #### Early Growth (100-1,000 users)
-- **Vercel Pro**: $20/month (needed for longer serverless timeouts)
-- **Supabase Pro**: $25/month (8GB DB, 50GB bandwidth, better performance)
-- **OpenAI API**: ~$50-100/month
+- **Vercel Pro**: $20/month
+- **Supabase Pro**: $25/month
+- **Claude API**: ~$50-100/month
 - **PostHog**: $0 (free tier covers 1M events)
 - **Total**: ~$100-150/month
 
 #### At Scale (1,000-10,000 users)
 - **Vercel Pro**: $20/month
 - **Supabase Pro**: $25-100/month (may need compute add-ons)
-- **OpenAI API**: ~$500-1,000/month
+- **Claude API**: ~$300-600/month (highly efficient with Haiku model)
 - **Monitoring (Sentry)**: $26/month
-- **Total**: ~$600-1,200/month
+- **Total**: ~$400-800/month
 
 **Revenue from Freemium** (assuming 5% conversion at $10/mo):
 - 10,000 users × 5% × $10 = $5,000/month
@@ -879,9 +895,9 @@ ${basePrompt}
 
 **Confirmed Stack**:
 - **Frontend + Backend**: Next.js 14 (App Router) + TypeScript
-- **Hosting**: Vercel
-- **Database**: Supabase (PostgreSQL + Auth + Real-time)
-- **AI/ML**: OpenAI API (gpt-4o-mini)
+- **Hosting**: Vercel Pro (you already have this)
+- **Database**: Supabase Pro (you already have this)
+- **AI/ML**: Claude API (claude-3-5-haiku for speed, claude-3-5-sonnet for complex cases)
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion
 - **Analytics**: PostHog (open source alternative to Mixpanel)
@@ -982,7 +998,7 @@ ${basePrompt}
 ```
 "Set up Slack OAuth flow using Supabase Auth"
 "Create a webhook endpoint to receive Slack messages"
-"Integrate OpenAI API to analyze if a message is actionable"
+"Integrate Anthropic Claude API to analyze if a message is actionable"
 "Store encrypted Slack tokens in Supabase"
 ```
 
@@ -1063,7 +1079,7 @@ ${basePrompt}
 
 **API Documentation**:
 - Slack API: https://api.slack.com/
-- OpenAI API: https://platform.openai.com/docs
+- Claude API: https://docs.anthropic.com/
 - Monday.com API: https://developer.monday.com/
 - Google Drive API: https://developers.google.com/drive
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function GET() {
   try {
@@ -19,6 +19,7 @@ export async function GET() {
     }
 
     // Test database connection by querying the tasks table
+    const supabase = await createClient()
     const { data, error } = await supabase
       .from('tasks')
       .select('*')

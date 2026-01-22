@@ -26,6 +26,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[Auth Context] Session check:', session ? 'User logged in' : 'No session')
+      console.log('[Auth Context] User email:', session?.user?.email)
       const currentUser = session?.user ?? null
       setUser(currentUser)
       setIsAuthorized(currentUser?.email === ALLOWED_EMAIL)

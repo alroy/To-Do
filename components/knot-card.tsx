@@ -82,7 +82,7 @@ export default function KnotCard({
       <button
         onClick={() => onDelete(id)}
         aria-label={`Delete ${title}`}
-        className="shrink-0 rounded-md p-1.5 text-muted-foreground/50 opacity-0 transition-opacity duration-100 ease-out hover:text-destructive focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+        className="shrink-0 rounded-md p-1.5 text-muted-foreground/50 opacity-100 transition-opacity duration-100 ease-out hover:text-destructive focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-4 w-4" />
       </button>

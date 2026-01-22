@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import KnotCard from "@/components/knot-card" // Import KnotCard component
 import { SortableKnotList } from "@/components/sortable-knot-list"
 import { KnotForm } from "@/components/knot-form"
-import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase-browser"
+import { useAuth } from "@/contexts/auth-context"
+import { SignIn } from "@/components/auth/sign-in"
+import { Unauthorized } from "@/components/auth/unauthorized"
+import { AuthHeader } from "@/components/auth/auth-header"
 
 interface Knot {
   id: string
@@ -16,18 +18,22 @@ interface Knot {
 }
 
 export default function Page() {
+  const { user, loading: authLoading, isAuthorized } = useAuth()
   const [knots, setKnots] = useState<Knot[]>([])
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
   const supabase = createClient()
 
   // Load knots from Supabase on mount
   useEffect(() => {
-    loadKnots()
-  }, [])
+    if (user && isAuthorized) {
+      loadKnots()
+    }
+  }, [user, isAuthorized])
 
   // Subscribe to real-time changes
   useEffect(() => {
+    if (!user || !isAuthorized) return
+
     const channel = supabase
       .channel('tasks-changes')
       .on(
@@ -36,6 +42,7 @@ export default function Page() {
           event: '*',
           schema: 'public',
           table: 'tasks',
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -78,13 +85,16 @@ export default function Page() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [user, isAuthorized])
 
   const loadKnots = async () => {
+    if (!user) return
+
     try {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -162,6 +172,8 @@ export default function Page() {
   }
 
   const handleAddKnot = async (data: { title: string; description: string }) => {
+    if (!user) return
+
     try {
       const { data: newTask, error } = await supabase
         .from('tasks')
@@ -169,6 +181,7 @@ export default function Page() {
           title: data.title,
           description: data.description,
           status: 'active',
+          user_id: user.id,
         })
         .select()
         .single()
@@ -188,15 +201,35 @@ export default function Page() {
     }
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-background px-4 py-12">
+        <div className="mx-auto max-w-xl">
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
+  // Show sign-in page if not authenticated
+  if (!user) {
+    return <SignIn />
+  }
+
+  // Show unauthorized page if user email is not whitelisted
+  if (!isAuthorized) {
+    return <Unauthorized />
+  }
+
+  // Show loading state while fetching knots
   if (loading) {
     return (
       <main className="min-h-screen bg-background px-4 py-12">
         <div className="mx-auto max-w-xl">
+          <AuthHeader />
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading your knots...</p>
           </div>
@@ -208,21 +241,11 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-background px-4 py-12">
       <div className="mx-auto max-w-xl">
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
-            <p className="text-muted-foreground">
-              What you meant to come back to.
-            </p>
-          </div>
-          <Button
-            onClick={handleSignOut}
-            size="sm"
-            className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-          >
-            Sign out
-          </Button>
-        </div>
+        <AuthHeader />
+        <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
+        <p className="mb-8 text-muted-foreground">
+          What you meant to come back to.
+        </p>
 
         <div className="mb-12">
           <KnotForm onSubmit={handleAddKnot} />

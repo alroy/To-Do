@@ -11,6 +11,6 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // Redirect to the main app
+  // Redirect to home page after sign in
   return NextResponse.redirect(`${origin}/`)
 }

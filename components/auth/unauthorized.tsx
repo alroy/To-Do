@@ -22,7 +22,7 @@ export function Unauthorized() {
             )}
           </div>
 
-          <Button onClick={signOut} variant="outline">
+          <Button onClick={signOut}>
             Sign out
           </Button>
         </div>

@@ -20,7 +20,7 @@ export function AuthHeader() {
         )}
         <span className="text-sm text-muted-foreground">{user.email}</span>
       </div>
-      <Button onClick={signOut} variant="outline" size="sm">
+      <Button onClick={signOut} size="sm">
         Sign out
       </Button>
     </div>

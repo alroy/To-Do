@@ -27,24 +27,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Refresh session if needed
+  await supabase.auth.getUser()
 
-  // If user is not signed in and the current path is not /login or /auth/callback, redirect to /login
-  if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
-
-  // If user is signed in and the current path is /login, redirect to /
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
-  }
-
+  // Let the AuthProvider in the app handle authentication and authorization
+  // This middleware just ensures cookies are properly set for SSR
   return supabaseResponse
 }
 

@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import KnotCard from "@/components/knot-card" // Import KnotCard component
 import { SortableKnotList } from "@/components/sortable-knot-list"
 import { KnotForm } from "@/components/knot-form"
-import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase-browser"
 
 interface Knot {
   id: string
@@ -16,6 +18,8 @@ interface Knot {
 export default function Page() {
   const [knots, setKnots] = useState<Knot[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
 
   // Load knots from Supabase on mount
   useEffect(() => {
@@ -184,6 +188,11 @@ export default function Page() {
     }
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-background px-4 py-12">
@@ -199,10 +208,21 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-background px-4 py-12">
       <div className="mx-auto max-w-xl">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
-        <p className="mb-8 text-muted-foreground">
-          What you meant to come back to.
-        </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
+            <p className="text-muted-foreground">
+              What you meant to come back to.
+            </p>
+          </div>
+          <Button
+            onClick={handleSignOut}
+            size="sm"
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+          >
+            Sign out
+          </Button>
+        </div>
 
         <div className="mb-12">
           <KnotForm onSubmit={handleAddKnot} />

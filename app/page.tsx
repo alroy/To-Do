@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import KnotCard from "@/components/knot-card" // Import KnotCard component
 import { SortableKnotList } from "@/components/sortable-knot-list"
 import { KnotForm } from "@/components/knot-form"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { SignIn } from "@/components/auth/sign-in"
 import { Unauthorized } from "@/components/auth/unauthorized"
@@ -21,6 +21,7 @@ export default function Page() {
   const { user, loading: authLoading, isAuthorized } = useAuth()
   const [knots, setKnots] = useState<Knot[]>([])
   const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
   // Load knots from Supabase on mount
   useEffect(() => {

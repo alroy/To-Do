@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import KnotCard from "@/components/knot-card" // Import KnotCard component
 import { SortableKnotList } from "@/components/sortable-knot-list"
 import { KnotForm } from "@/components/knot-form"
+import { supabase } from "@/lib/supabase"
 
 interface Knot {
   id: string
@@ -12,62 +13,133 @@ interface Knot {
   status: "active" | "completed"
 }
 
-const initialKnots: Knot[] = [
-  {
-    id: "1",
-    title: "Learn the Bowline Knot",
-    description: "Master the king of knots - essential for sailing and rescue operations",
-    status: "completed",
-  },
-  {
-    id: "2",
-    title: "Practice the Figure Eight",
-    description: "A stopper knot commonly used in climbing and sailing",
-    status: "active",
-  },
-  {
-    id: "3",
-    title: "Study the Clove Hitch",
-    description: "Quick and easy knot for securing a rope to a post or pole",
-    status: "active",
-  },
-  {
-    id: "4",
-    title: "Master the Sheet Bend",
-    description: "Perfect for joining two ropes of different diameters together",
-    status: "active",
-  },
-]
-
 export default function Page() {
-  const [knots, setKnots] = useState<Knot[]>(initialKnots)
+  const [knots, setKnots] = useState<Knot[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleToggle = (id: string) => {
-    setKnots((prev) =>
-      prev.map((knot) =>
-        knot.id === id
-          ? { ...knot, status: knot.status === "active" ? "completed" : "active" }
-          : knot
-      )
-    )
+  // Load knots from Supabase on mount
+  useEffect(() => {
+    loadKnots()
+  }, [])
+
+  const loadKnots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const formattedKnots: Knot[] = (data || []).map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status as 'active' | 'completed',
+      }))
+
+      setKnots(formattedKnots)
+    } catch (error) {
+      console.error('Error loading knots:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleToggle = async (id: string) => {
+    const knot = knots.find((k) => k.id === id)
+    if (!knot) return
+
+    const newStatus = knot.status === 'active' ? 'completed' : 'active'
+
+    // Optimistic update
+    setKnots((prev) =>
+      prev.map((k) =>
+        k.id === id ? { ...k, status: newStatus } : k
+      )
+    )
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
+        })
+        .eq('id', id)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error toggling knot:', error)
+      // Revert on error
+      setKnots((prev) =>
+        prev.map((k) =>
+          k.id === id ? { ...k, status: knot.status } : k
+        )
+      )
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    // Optimistic update
     setKnots((prev) => prev.filter((knot) => knot.id !== id))
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting knot:', error)
+      // Reload on error
+      loadKnots()
+    }
   }
 
   const handleReorder = (reorderedKnots: Knot[]) => {
     setKnots(reorderedKnots)
+    // TODO: Persist order to database if needed
   }
 
-  const handleAddKnot = (data: { title: string; description: string }) => {
-    const newKnot: Knot = {
-      id: Date.now().toString(),
-      title: data.title,
-      description: data.description,
-      status: "active",
+  const handleAddKnot = async (data: { title: string; description: string }) => {
+    try {
+      const { data: newTask, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: data.title,
+          description: data.description,
+          status: 'active',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const newKnot: Knot = {
+        id: newTask.id,
+        title: newTask.title,
+        description: newTask.description || '',
+        status: newTask.status,
+      }
+
+      setKnots((prev) => [newKnot, ...prev])
+    } catch (error) {
+      console.error('Error adding knot:', error)
     }
-    setKnots((prev) => [newKnot, ...prev])
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background px-4 py-12">
+        <div className="mx-auto max-w-xl">
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">Loading your knots...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (

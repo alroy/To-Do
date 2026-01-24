@@ -49,8 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      const supabase = createClient()
+      console.log('[Auth] ==========================================')
       console.log('[Auth] Starting Google OAuth flow...')
+      console.log('[Auth] Current origin:', window.location.origin)
+
+      const supabase = createClient()
+      console.log('[Auth] Supabase client created')
       console.log('[Auth] Redirect URL:', `${window.location.origin}/auth/callback`)
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -60,21 +64,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       })
 
-      console.log('[Auth] OAuth response:', { data, error })
+      console.log('[Auth] OAuth call completed')
+      console.log('[Auth] Data:', data)
+      console.log('[Auth] Error:', error)
 
       if (error) {
-        console.error('[Auth] Error signing in with Google:', error)
+        console.error('[Auth] ✗ Error signing in with Google:', error)
         alert(`Sign-in error: ${error.message}`)
-      } else if (data?.url) {
-        console.log('[Auth] Redirecting to:', data.url)
-        window.location.href = data.url
-      } else {
-        console.error('[Auth] No URL returned from OAuth')
-        alert('No redirect URL returned from authentication')
+        return
       }
-    } catch (err) {
-      console.error('[Auth] Unexpected error:', err)
-      alert(`Unexpected error: ${err}`)
+
+      if (!data) {
+        console.error('[Auth] ✗ No data returned from OAuth')
+        alert('No data returned from authentication')
+        return
+      }
+
+      if (!data.url) {
+        console.error('[Auth] ✗ No URL in OAuth response')
+        console.error('[Auth] Full data:', JSON.stringify(data, null, 2))
+        alert('No redirect URL returned from authentication')
+        return
+      }
+
+      console.log('[Auth] ✓ Got OAuth URL:', data.url)
+      console.log('[Auth] ✓ Redirecting to Google...')
+      console.log('[Auth] ==========================================')
+      window.location.href = data.url
+    } catch (err: any) {
+      console.error('[Auth] ✗ Unexpected error:', err)
+      console.error('[Auth] Error details:', err.message, err.stack)
+      alert(`Unexpected error: ${err.message || err}`)
     }
   }
 

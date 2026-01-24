@@ -1,6 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -23,9 +22,8 @@ export async function GET(request: NextRequest) {
 
   console.log('[Auth Callback] Supabase URL:', url)
 
-  // CRITICAL: In Route Handlers, use cookies() API and Next.js will automatically
-  // attach the cookies to the response you return
-  const cookieStore = await cookies()
+  // CRITICAL: Create response FIRST, then set cookies on it during exchangeCodeForSession
+  let response = NextResponse.redirect(`${origin}/`)
 
   const supabase = createServerClient(
     url,
@@ -33,20 +31,28 @@ export async function GET(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          console.log('[Auth Callback] Setting', cookiesToSet.length, 'cookies via cookies() API')
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              console.log('[Auth Callback]   - Cookie:', name, 'maxAge:', options?.maxAge)
-              cookieStore.set(name, value, options)
+          console.log('[Auth Callback] Setting', cookiesToSet.length, 'cookies on response object')
+          cookiesToSet.forEach(({ name, value, options }) => {
+            console.log('[Auth Callback]   - Setting cookie:', name)
+            console.log('[Auth Callback]     - maxAge:', options?.maxAge)
+            console.log('[Auth Callback]     - path:', options?.path)
+            console.log('[Auth Callback]     - domain:', options?.domain)
+            console.log('[Auth Callback]     - sameSite:', options?.sameSite)
+
+            // Set cookie on BOTH request and response to ensure it persists
+            request.cookies.set(name, value)
+            response.cookies.set(name, value, {
+              ...options,
+              // Force these settings for maximum compatibility
+              path: '/',
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax'
             })
-          } catch (error) {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
-            console.error('[Auth Callback] Error setting cookies:', error)
-          }
+          })
         },
       },
     }
@@ -58,6 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Auth Callback] ✗ Error exchanging code:', error.message)
+      console.error('[Auth Callback] ✗ Error details:', error)
       return NextResponse.redirect(`${origin}/?error=${encodeURIComponent(error.message)}`)
     }
 
@@ -68,12 +75,21 @@ export async function GET(request: NextRequest) {
 
     console.log('[Auth Callback] ✓ Session exchanged successfully!')
     console.log('[Auth Callback] ✓ User email:', data.user?.email)
+    console.log('[Auth Callback] ✓ Access token (first 20 chars):', data.session.access_token.substring(0, 20))
+    console.log('[Auth Callback] ✓ Refresh token exists:', !!data.session.refresh_token)
     console.log('[Auth Callback] ✓ Session expires:', new Date(data.session.expires_at! * 1000).toISOString())
+
+    // Log all cookies that will be sent
+    const responseCookies = response.cookies.getAll()
+    console.log('[Auth Callback] ✓ Total cookies on response:', responseCookies.length)
+    responseCookies.forEach(cookie => {
+      console.log('[Auth Callback]   - Response cookie:', cookie.name, 'length:', cookie.value.length)
+    })
+
     console.log('[Auth Callback] ✓ Redirecting to home page')
     console.log('[Auth Callback] ==========================================')
 
-    // Next.js automatically attaches cookies set via cookies() to this response
-    return NextResponse.redirect(`${origin}/`)
+    return response
   } catch (err) {
     console.error('[Auth Callback] ✗ Unexpected error:', err)
     return NextResponse.redirect(`${origin}/?error=unexpected_error`)

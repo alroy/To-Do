@@ -48,15 +48,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithGoogle = async () => {
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      console.error('Error signing in with Google:', error)
+    try {
+      const supabase = createClient()
+      console.log('[Auth] Starting Google OAuth flow...')
+      console.log('[Auth] Redirect URL:', `${window.location.origin}/auth/callback`)
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      console.log('[Auth] OAuth response:', { data, error })
+
+      if (error) {
+        console.error('[Auth] Error signing in with Google:', error)
+        alert(`Sign-in error: ${error.message}`)
+      } else {
+        console.log('[Auth] OAuth initiated successfully, should redirect...')
+      }
+    } catch (err) {
+      console.error('[Auth] Unexpected error:', err)
+      alert(`Unexpected error: ${err}`)
     }
   }
 

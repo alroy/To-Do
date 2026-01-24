@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button'
 export function SignIn() {
   const { signInWithGoogle, loading } = useAuth()
 
+  const handleClick = async () => {
+    console.log('[Sign In] Button clicked')
+    console.log('[Sign In] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    console.log('[Sign In] SUPABASE_KEY exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    await signInWithGoogle()
+  }
+
   return (
     <main className="min-h-screen bg-background px-4 py-12">
       <div className="mx-auto max-w-xl">
@@ -18,7 +25,7 @@ export function SignIn() {
           </div>
 
           <Button
-            onClick={signInWithGoogle}
+            onClick={handleClick}
             disabled={loading}
             size="lg"
             className="flex items-center gap-2"

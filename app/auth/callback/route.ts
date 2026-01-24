@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   console.log('[Auth Callback] Supabase URL:', url)
 
-  // CRITICAL: Create response FIRST, then set cookies on it during exchangeCodeForSession
+  // Create response object that will be used to set cookies
   let response = NextResponse.redirect(`${origin}/`)
 
   const supabase = createServerClient(
@@ -39,19 +39,12 @@ export async function GET(request: NextRequest) {
             console.log('[Auth Callback]   - Setting cookie:', name)
             console.log('[Auth Callback]     - maxAge:', options?.maxAge)
             console.log('[Auth Callback]     - path:', options?.path)
-            console.log('[Auth Callback]     - domain:', options?.domain)
             console.log('[Auth Callback]     - sameSite:', options?.sameSite)
+            console.log('[Auth Callback]     - httpOnly:', options?.httpOnly)
 
-            // Set cookie on BOTH request and response to ensure it persists
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, {
-              ...options,
-              // Force these settings for maximum compatibility
-              path: '/',
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax'
-            })
+            // CRITICAL FIX: Only set cookies on response with Supabase's original options
+            // Do NOT override options or set on request - this causes Set-Cookie header issues
+            response.cookies.set(name, value, options)
           })
         },
       },

@@ -33,6 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[Auth Context] User ID:', session?.user?.id)
       console.log('[Auth Context] Allowed email:', ALLOWED_EMAIL)
 
+      // Check cookies in browser
+      const allCookies = document.cookie
+      console.log('[Auth Context] All cookies:', allCookies)
+      const supabaseCookies = allCookies.split(';').filter(c => c.trim().startsWith('sb-'))
+      console.log('[Auth Context] Supabase cookies count:', supabaseCookies.length)
+      supabaseCookies.forEach(c => console.log('[Auth Context]   Cookie:', c.trim().split('=')[0]))
+
       const currentUser = session?.user ?? null
       const userEmail = currentUser?.email
       const authorized = userEmail === ALLOWED_EMAIL

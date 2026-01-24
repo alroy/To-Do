@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/auth/callback',
+    // Don't run middleware on auth callback - let the route handler handle it
+    // Add other protected routes here if needed
   ],
 }

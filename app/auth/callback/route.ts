@@ -1,20 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const origin = requestUrl.origin
 
-  let response = NextResponse.redirect(`${origin}/`)
-
   if (code) {
-    const cookieStore = await cookies()
-
     // Use placeholder values during build if env vars are missing
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+
+    // Create the response first
+    const response = NextResponse.redirect(`${origin}/`)
 
     const supabase = createServerClient(
       url,
@@ -41,7 +39,11 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('[Auth Callback] Session exchanged successfully for:', data.user?.email)
+
+    // Return the response with cookies set
+    return response
   }
 
-  return response
+  // No code, just redirect
+  return NextResponse.redirect(`${origin}/`)
 }

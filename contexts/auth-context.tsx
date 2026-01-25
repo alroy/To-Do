@@ -35,43 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
 
-    // Handle auth tokens from URL (magic link or password recovery)
-    const handleAuthFromUrl = async () => {
-      // Check query params
+    // Handle code-based auth (PKCE flow) from URL
+    const handleCodeFromUrl = async () => {
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
       const type = params.get('type')
 
-      // Also check hash fragment (Supabase sometimes uses this)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      const hashType = hashParams.get('type')
-      const accessToken = hashParams.get('access_token')
-
-      // Detect recovery from either query param or hash
-      const isRecovery = type === 'recovery' || hashType === 'recovery'
-
-      // Handle hash-based auth (older Supabase flow)
-      if (accessToken && hashType === 'recovery') {
-        setIsPasswordRecovery(true)
-        window.history.replaceState({}, '', window.location.pathname)
-        return
-      }
-
       if (code) {
-        // Exchange code for session client-side
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
-          // Set recovery mode if this was a password reset
-          if (isRecovery) {
+          if (type === 'recovery') {
             setIsPasswordRecovery(true)
           }
-          // Clean up URL
           window.history.replaceState({}, '', window.location.pathname)
         }
       }
     }
 
-    handleAuthFromUrl()
+    handleCodeFromUrl()
 
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -95,6 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Detect password recovery mode
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true)
+      }
+
+      // Clean up URL hash after Supabase processes it
+      if (window.location.hash) {
+        window.history.replaceState({}, '', window.location.pathname)
       }
     })
 

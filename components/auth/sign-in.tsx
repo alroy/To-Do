@@ -5,9 +5,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+type AuthMode = 'password' | 'magic-link'
+
 export function SignIn() {
-  const { sendMagicLink, loading } = useAuth()
+  const { sendMagicLink, signInWithPassword, loading } = useAuth()
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [mode, setMode] = useState<AuthMode>('password')
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -20,16 +24,31 @@ export function SignIn() {
       return
     }
 
+    if (mode === 'password' && !password) {
+      setStatus('error')
+      setErrorMessage('Please enter your password')
+      return
+    }
+
     setStatus('sending')
     setErrorMessage('')
 
-    const result = await sendMagicLink(email.trim())
-
-    if (result.success) {
-      setStatus('sent')
+    if (mode === 'magic-link') {
+      const result = await sendMagicLink(email.trim())
+      if (result.success) {
+        setStatus('sent')
+      } else {
+        setStatus('error')
+        setErrorMessage(result.error || 'Failed to send magic link')
+      }
     } else {
-      setStatus('error')
-      setErrorMessage(result.error || 'Failed to send magic link')
+      const result = await signInWithPassword(email.trim(), password)
+      if (result.success) {
+        // Auth state change will handle redirect
+      } else {
+        setStatus('error')
+        setErrorMessage(result.error || 'Failed to sign in')
+      }
     }
   }
 
@@ -70,7 +89,7 @@ export function SignIn() {
           <div className="text-center">
             <h1 className="mb-2 text-3xl font-bold text-foreground">Welcome to Knots</h1>
             <p className="text-muted-foreground">
-              Enter your email to receive a sign-in link
+              {mode === 'password' ? 'Sign in with your email and password' : 'Enter your email to receive a sign-in link'}
             </p>
           </div>
 
@@ -84,6 +103,16 @@ export function SignIn() {
               autoFocus
             />
 
+            {mode === 'password' && (
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={status === 'sending' || loading}
+              />
+            )}
+
             {status === 'error' && errorMessage && (
               <p className="text-sm text-red-600">{errorMessage}</p>
             )}
@@ -94,13 +123,22 @@ export function SignIn() {
               size="lg"
               className="w-full"
             >
-              {status === 'sending' ? 'Sending...' : 'Send magic link'}
+              {status === 'sending'
+                ? (mode === 'password' ? 'Signing in...' : 'Sending...')
+                : (mode === 'password' ? 'Sign in' : 'Send magic link')}
             </Button>
           </form>
 
-          <p className="text-center text-xs text-muted-foreground">
-            No password needed. We&apos;ll email you a secure link.
-          </p>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setMode(mode === 'password' ? 'magic-link' : 'password')
+              setStatus('idle')
+              setErrorMessage('')
+            }}
+          >
+            {mode === 'password' ? 'Use magic link instead' : 'Use password instead'}
+          </Button>
         </div>
       </div>
     </main>

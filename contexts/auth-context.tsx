@@ -24,6 +24,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
 
+    // Handle magic link token from URL (client-side)
+    const handleMagicLink = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+
+      if (code) {
+        // Exchange code for session client-side
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error) {
+          // Clean up URL
+          window.history.replaceState({}, '', window.location.pathname)
+        }
+      }
+    }
+
+    handleMagicLink()
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user ?? null
@@ -34,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    // Listen for auth changes (handles magic link return)
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -59,7 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Redirect to root - client-side handles the code exchange
+          emailRedirectTo: `${window.location.origin}/`,
         },
       })
 

@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   sendMagicLink: (email: string) => Promise<{ success: boolean; error?: string }>
+  signInWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signOut: () => Promise<void>
   isAuthorized: boolean
 }
@@ -91,13 +92,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const signInWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    if (email.toLowerCase() !== ALLOWED_EMAIL.toLowerCase()) {
+      return { success: false, error: 'This email is not authorized to access this app.' }
+    }
+
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch (err: any) {
+      return { success: false, error: err.message || 'An unexpected error occurred' }
+    }
+  }
+
   const signOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, sendMagicLink, signOut, isAuthorized }}>
+    <AuthContext.Provider value={{ user, loading, sendMagicLink, signInWithPassword, signOut, isAuthorized }}>
       {children}
     </AuthContext.Provider>
   )

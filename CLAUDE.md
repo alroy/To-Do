@@ -51,17 +51,33 @@ Main page with Supabase integration:
 - Implements CRUD operations with optimistic updates
 - Error rollback on database failures
 - Drag-and-drop reordering
+- Task editing via modal (tap card content to edit)
 - Real-time sync via Supabase Realtime (changes appear instantly across devices)
 - Hamburger menu at top-right for user profile/sign out
 - KnotForm FAB at bottom-right for adding new tasks
 
 ### `/components/knot-form.tsx`
-Floating Action Button (FAB) with modal form:
+Floating Action Button (FAB) with modal form for create/edit:
 - FAB fixed at bottom-right corner (56px circular button)
 - Opens centered modal form on click with backdrop overlay
 - Form contains title input and optional description
+- Supports two modes: create (default) and edit (via `editTask` prop)
+- Edit mode: prefills title/description, button shows "Save changes"
+- iOS-safe autofocus with 100ms delay for reliable keyboard display
+- Modal uses `100dvh` max-height with scrolling for iOS keyboard visibility
+- On error: keeps modal open, preserves user input, shows retry option
 - Closes on submit/cancel or backdrop click
 - Custom KnotIcon SVG component
+
+### `/components/knot-card.tsx`
+Individual task card with drag handle and controls:
+- Tap card content area to open edit modal
+- Drag handle (GripVertical icon) - does NOT trigger edit
+- Checkbox for completion toggle - does NOT trigger edit
+- Delete button (Trash icon) - does NOT trigger edit
+- `isListDragging` prop suppresses edit during/after drag operations
+- `touch-action: manipulation` on tappable elements for faster iOS response
+- Keyboard accessible (Enter/Space to edit)
 
 ### `/components/hamburger-menu.tsx`
 Hamburger menu with slide-out drawer:
@@ -76,6 +92,9 @@ Drag-and-drop list using @dnd-kit:
 - SortableContext for reordering
 - Handles drag events and animations
 - Integrates with knot card components
+- Tracks drag state (`isDragging`) to suppress edit clicks during drag
+- 200ms cooldown after drag end to prevent iOS "ghost clicks"
+- Passes `onEdit` callback and `isListDragging` to all cards
 
 ### `/components/ui/`
 Reusable UI components:
@@ -111,8 +130,10 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - ✅ Real-time sync across devices via Supabase Realtime (create, update, delete, reorder)
 - ✅ Cross-tab sync for all operations including reorder
 - ✅ KnotForm as FAB with modal overlay
+- ✅ Task editing via tap (works on Chrome, Safari, iOS Safari, PWA mode)
 - ✅ Hamburger menu with slide-out drawer for user profile
 - ✅ Drag-and-drop functionality with persistent ordering
+- ✅ Drag suppression logic to prevent edit conflicts on iOS
 - ✅ Refined oklch color palette with hover states
 - ✅ Optimistic UI updates with error handling
 - ✅ All CSS variables defined for card styling
@@ -128,6 +149,13 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - Button component supports size prop for different variants
 - Focus states use 1px ring with 20% opacity
 - Cards use accent-hover and accent-subtle variables for states
+
+### iOS Safari & PWA Compatibility
+- Use `touch-action: manipulation` on tappable elements for faster response
+- Modal autofocus needs 100ms delay for reliable iOS keyboard display
+- Use `100dvh` (dynamic viewport height) for modals to handle iOS keyboard
+- Track drag state with 200ms cooldown to prevent ghost clicks after drag
+- Save only via explicit button click (not blur) to avoid iOS keyboard issues
 
 ## Testing
 Run tests with: `npm test`

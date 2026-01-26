@@ -25,6 +25,30 @@ Table: `tasks`
 
 **Required for cross-tab sync:** Run `supabase-migration-cross-tab-sync.sql` to add `position` column and set `REPLICA IDENTITY FULL`.
 
+**Required for Slack integration:** Run `supabase-migration-slack.sql` to add Slack tables.
+
+Table: `slack_connections`
+- `id` (uuid, primary key)
+- `user_id` (uuid, references auth.users)
+- `team_id` (text) - Slack workspace ID
+- `team_name` (text, nullable)
+- `bot_user_id` (text, nullable)
+- `slack_user_id` (text) - Slack user who connected
+- `access_token` (text) - Bot OAuth token
+- `created_at` (timestamp)
+- `revoked_at` (timestamp, nullable) - Soft delete
+
+Table: `slack_event_ingest`
+- `id` (uuid, primary key)
+- `team_id` (text)
+- `event_id` (text) - Slack event ID for deduplication
+- `event_type` (text)
+- `payload` (jsonb) - Raw event data
+- `status` (text) - received|processed|ignored|failed
+- `task_id` (uuid, nullable) - Created task reference
+- `error_message` (text, nullable)
+- `created_at` (timestamp)
+
 ## Design System
 
 ### Color Palette
@@ -87,6 +111,21 @@ Reusable UI components:
 ### `/lib/supabase.ts`
 Supabase client configuration for database operations.
 
+### `/lib/supabase-admin.ts`
+Service role client for webhook processing (bypasses RLS).
+
+### `/lib/slack/`
+Slack integration utilities:
+- `verify-signature.ts` - HMAC-SHA256 request signature verification
+- `event-handlers.ts` - Event processing, DM/mention detection, task creation
+- `oauth.ts` - OAuth URL building and token exchange
+
+### `/components/settings/slack-settings.tsx`
+Slack connection UI in hamburger menu:
+- Shows connection status
+- Connect/Disconnect buttons
+- Displays connected workspace name
+
 ## Development Workflow
 
 ### Git Branches
@@ -117,6 +156,7 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - ✅ Optimistic UI updates with error handling
 - ✅ All CSS variables defined for card styling
 - ✅ Unit tests for cross-tab sync state updates
+- ✅ Slack integration for auto-creating tasks from DMs and @mentions
 
 ## Important Notes
 - Always use optimistic updates for better UX
@@ -129,9 +169,43 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - Focus states use 1px ring with 20% opacity
 - Cards use accent-hover and accent-subtle variables for states
 
+## Slack Integration
+
+### Overview
+Auto-creates tasks when the connected user receives:
+- Direct messages (DMs) in Slack
+- @mentions in channels
+
+### Environment Variables
+```bash
+SLACK_FEATURE_ENABLED=true|false  # Feature flag
+SLACK_CLIENT_ID=                  # From Slack app settings
+SLACK_CLIENT_SECRET=              # From Slack app settings
+SLACK_SIGNING_SECRET=             # For webhook verification
+SUPABASE_SERVICE_ROLE_KEY=        # For admin database operations
+NEXT_PUBLIC_SITE_URL=             # For OAuth redirects
+```
+
+### API Routes
+- `POST /api/slack/events` - Webhook for Slack Events API
+- `GET /api/slack/oauth/start` - Initiates OAuth flow
+- `GET /api/slack/oauth/callback` - Handles OAuth callback
+
+### How It Works
+1. User connects Slack via hamburger menu → Settings
+2. OAuth flow stores credentials in `slack_connections`
+3. Slack sends events to `/api/slack/events` webhook
+4. Webhook verifies signature, dedupes via `slack_event_ingest`
+5. If DM or mention detected, creates task for the user
+
+### Setup
+See `docs/SLACK_SETUP.md` for full setup instructions.
+
 ## Testing
 Run tests with: `npm test`
 Tests include:
 - Cross-tab sync state updates for INSERT, UPDATE, DELETE events
 - Reorder operations and position management
 - Rapid sequential operations handling
+- Slack signature verification (13 tests)
+- Slack event processing and filtering (25 tests)

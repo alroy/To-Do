@@ -49,13 +49,24 @@ Main page with Supabase integration:
 - Error rollback on database failures
 - Drag-and-drop reordering
 - Real-time sync via Supabase Realtime (changes appear instantly across devices)
+- Hamburger menu at top-right for user profile/sign out
+- KnotForm FAB at bottom-right for adding new tasks
 
 ### `/components/knot-form.tsx`
-Collapsible form with custom UX:
-- Starts as circular icon button with knot SVG
-- Expands to full form on click
-- Collapses on submit/cancel
+Floating Action Button (FAB) with modal form:
+- FAB fixed at bottom-right corner (56px circular button)
+- Opens centered modal form on click with backdrop overlay
+- Form contains title input and optional description
+- Closes on submit/cancel or backdrop click
 - Custom KnotIcon SVG component
+
+### `/components/hamburger-menu.tsx`
+Hamburger menu with slide-out drawer:
+- Hamburger icon button (3 lines) at top-right
+- Opens slide-out drawer from right side
+- Contains user avatar, email, and "Sign out" button
+- Semi-transparent backdrop overlay
+- Uses `useAuth()` hook for user data and sign out
 
 ### `/components/sortable-knot-list.tsx`
 Drag-and-drop list using @dnd-kit:
@@ -95,7 +106,8 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 ## Current State
 - ✅ Supabase integration complete (CRUD operations)
 - ✅ Real-time sync across devices via Supabase Realtime
-- ✅ Collapsible form with knot icon button
+- ✅ KnotForm as FAB with modal overlay
+- ✅ Hamburger menu with slide-out drawer for user profile
 - ✅ Drag-and-drop functionality
 - ✅ Refined oklch color palette with hover states
 - ✅ Optimistic UI updates with error handling

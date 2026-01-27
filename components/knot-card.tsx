@@ -1,16 +1,23 @@
 "use client"
 
-import React from "react"
+import React, { useMemo } from "react"
 
 import { Checkbox } from "@/components/ui/checkbox"
+import { SlackBadge } from "@/components/ui/slack-badge"
 import { GripVertical, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { TaskMetadata, isSlackMetadata } from "@/lib/types"
+import {
+  prepareTaskForListView,
+  detectSlackTask,
+} from "@/lib/slack/text-utils"
 
 export interface KnotCardProps {
   id: string
   title: string
   description: string
   status: "active" | "completed"
+  metadata?: TaskMetadata
   onToggle: (id: string) => void
   onDelete: (id: string) => void
   onEdit?: (id: string) => void
@@ -26,6 +33,7 @@ export default function KnotCard({
   title,
   description,
   status,
+  metadata,
   onToggle,
   onDelete,
   onEdit,
@@ -35,6 +43,37 @@ export default function KnotCard({
   isListDragging = false,
 }: KnotCardProps) {
   const isCompleted = status === "completed"
+
+  // Prepare display text - normalize Slack tokens and truncate for list view
+  const displayText = useMemo(() => {
+    return prepareTaskForListView(title, description)
+  }, [title, description])
+
+  // Determine Slack context - from metadata (new tasks) or legacy detection (old tasks)
+  const slackContext = useMemo(() => {
+    // Check metadata first (new Slack tasks)
+    if (isSlackMetadata(metadata)) {
+      return {
+        isSlack: true,
+        subtype: metadata.source.subtype,
+        permalink: metadata.source.permalink,
+        authorName: metadata.source.author?.display_name,
+      }
+    }
+
+    // Fall back to legacy detection for old tasks
+    const detected = detectSlackTask(description)
+    if (detected.isSlack) {
+      return {
+        isSlack: true,
+        subtype: detected.subtype,
+        permalink: detected.permalink,
+        authorName: detected.senderName,
+      }
+    }
+
+    return { isSlack: false }
+  }, [metadata, description])
 
   // Handle click on card content area to open edit modal
   const handleContentClick = () => {
@@ -111,7 +150,7 @@ export default function KnotCard({
             onEdit(id)
           }
         }}
-        aria-label={onEdit ? `Edit ${title}` : undefined}
+        aria-label={onEdit ? `Edit ${displayText.title}` : undefined}
       >
         <span
           className={cn(
@@ -119,24 +158,33 @@ export default function KnotCard({
             isCompleted && "text-muted-foreground line-through decoration-muted-foreground/50"
           )}
         >
-          {title}
+          {displayText.title}
         </span>
-        {description && (
+        {displayText.description && (
           <p
             className={cn(
               "mt-1 text-sm text-muted-foreground transition-[color,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
               isCompleted && "text-muted-foreground/70"
             )}
           >
-            {description}
+            {displayText.description}
           </p>
+        )}
+        {/* Slack context badge for Slack-origin tasks */}
+        {slackContext.isSlack && (
+          <SlackBadge
+            subtype={slackContext.subtype}
+            authorName={slackContext.authorName}
+            permalink={slackContext.permalink}
+            className="mt-2"
+          />
         )}
       </div>
 
       {/* Delete button - clicks should not trigger edit */}
       <button
         onClick={handleDeleteClick}
-        aria-label={`Delete ${title}`}
+        aria-label={`Delete ${displayText.title}`}
         className="shrink-0 rounded-md p-1.5 text-muted-foreground/50 opacity-100 transition-opacity duration-100 ease-out hover:text-destructive focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
         style={{ touchAction: "manipulation" }}
       >

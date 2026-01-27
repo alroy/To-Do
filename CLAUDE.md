@@ -20,10 +20,26 @@ Table: `tasks`
 - `description` (text, nullable)
 - `status` ('active' | 'completed')
 - `position` (integer) - For persistent ordering, 0 = top
+- `metadata` (jsonb, nullable) - Structured metadata for task context (e.g., Slack source info)
 - `created_at` (timestamp)
 - `completed_at` (timestamp, nullable)
 
-**Required for cross-tab sync:** Run `supabase-migration-cross-tab-sync.sql` to add `position` column and set `REPLICA IDENTITY FULL`.
+Table: `slack_connections`
+- `id` (uuid, primary key)
+- `user_id` (uuid, references auth.users)
+- `team_id` (text) - Slack workspace ID
+- `slack_user_id` (text) - User's Slack ID
+- `access_token` (text) - Bot token for API calls
+- `created_at`, `revoked_at` (timestamps)
+
+Table: `slack_event_ingest`
+- Stores raw Slack events for deduplication and audit
+- Unique constraint on (team_id, event_id)
+
+**Required migrations:**
+- `supabase-migration-cross-tab-sync.sql` - position column and REPLICA IDENTITY FULL
+- `supabase-migration-task-metadata.sql` - metadata JSONB column
+- `supabase-migration-slack.sql` - Slack integration tables
 
 ## Design System
 
@@ -83,9 +99,35 @@ Reusable UI components:
 - `input.tsx` - Text input with consistent styling
 - `textarea.tsx` - Multi-line text input
 - `label.tsx` - Form labels
+- `slack-badge.tsx` - Compact badge for Slack-origin tasks with "View in Slack" link
 
 ### `/lib/supabase.ts`
 Supabase client configuration for database operations.
+
+### `/lib/types.ts`
+Shared TypeScript types:
+- `SlackUserMap` - Map of Slack user IDs to display names
+- `SlackTaskMetadata` - Metadata structure for Slack tasks (source, raw text, user_map)
+- `isSlackMetadata()` - Type guard for checking Slack metadata
+
+### `/lib/slack/`
+Slack integration utilities:
+
+**`text-utils.ts`** - Text normalization for clean display:
+- `normalizeSlackText()` - Converts Slack tokens to readable text (`<@U123>` → `@DisplayName`)
+- `deriveTitleFromSlackMessage()` - Extracts clean title from message
+- `stripSlackSourceBlock()` - Removes legacy `---\nSource: Slack` blocks
+- `detectSlackTask()` - Detects legacy Slack tasks by description pattern
+- `prepareTaskForListView()` - Prepares task for card display (normalize + truncate)
+- `prepareDescriptionForEdit()` - Strips legacy blocks for clean editing
+
+**`api.ts`** - Slack Web API helpers:
+- `fetchSlackUser()` - Fetches user info from Slack API
+- `resolveUserMentions()` - Resolves all `<@U...>` mentions to display names
+
+**`event-handlers.ts`** - Slack event processing:
+- `processSlackEvent()` - Creates tasks from Slack DMs/mentions
+- `buildSlackMetadata()` - Builds metadata object with user_map for rendering
 
 ## Development Workflow
 
@@ -117,6 +159,12 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - ✅ Optimistic UI updates with error handling
 - ✅ All CSS variables defined for card styling
 - ✅ Unit tests for cross-tab sync state updates
+- ✅ Slack integration (create tasks from DMs/mentions)
+- ✅ Slack text normalization (clean display of mentions, URLs, channels)
+- ✅ User mention resolution via Slack API (`<@U123>` → `@John Smith`)
+- ✅ Compact Slack badge with "View in Slack" link
+- ✅ Legacy Slack task detection and source block stripping
+- ✅ Metadata storage for Slack context (user_map, permalink, author)
 
 ## Important Notes
 - Always use optimistic updates for better UX
@@ -129,9 +177,19 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - Focus states use 1px ring with 20% opacity
 - Cards use accent-hover and accent-subtle variables for states
 
+### Slack Integration Notes
+- Text normalization happens at render-time (doesn't modify stored data)
+- User mentions are resolved server-side when task is created, stored in `metadata.user_map`
+- Legacy tasks (created before metadata) use `detectSlackTask()` for fallback detection
+- Legacy `---\nSource: Slack mention` blocks are stripped from display/edit
+- `prepareTaskForListView()` and `prepareDescriptionForEdit()` handle all normalization
+
 ## Testing
 Run tests with: `npm test`
 Tests include:
 - Cross-tab sync state updates for INSERT, UPDATE, DELETE events
 - Reorder operations and position management
 - Rapid sequential operations handling
+- Slack text normalization (65 tests in `slack-text-utils.test.ts`)
+- Slack event processing (33 tests in `slack-events.test.ts`)
+- Slack signature verification (13 tests in `slack-signature.test.ts`)

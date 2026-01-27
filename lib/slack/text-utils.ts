@@ -144,9 +144,9 @@ export function deriveTitleFromSlackMessage(
 /**
  * Pattern to detect legacy Slack source block in description
  * Matches: "---\nFrom: ... | Source: Slack DM/mention | Link: ..."
- * Note: Uses \n+ to handle multiple newlines before --- (legacy format had empty line)
+ * Note: Uses [\r\n]+ to handle Windows/Unix line endings and multiple blank lines
  */
-const LEGACY_SOURCE_PATTERN = /\n+---\n(?:From: [^|]+\s*\|\s*)?Source: Slack (DM|mention)(?:\s*\|\s*Link: ([^\s\n]+))?/i
+const LEGACY_SOURCE_PATTERN = /[\r\n]+---[\r\n]+(?:From: [^|]+\s*\|\s*)?Source: Slack (DM|mention)(?:\s*\|\s*Link: ([^\s\r\n]+))?/i
 
 /**
  * Strip the legacy Slack source block from a task description

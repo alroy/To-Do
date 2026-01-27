@@ -6,6 +6,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix"
+import { TaskMetadata, isSlackMetadata } from "@/lib/types"
+import { prepareDescriptionForEdit, detectSlackTask } from "@/lib/slack/text-utils"
+import { ExternalLink } from "lucide-react"
 
 function KnotIcon({ className }: { className?: string }) {
   return (
@@ -24,6 +27,7 @@ export interface EditTask {
   id: string
   title: string
   description: string
+  metadata?: TaskMetadata
 }
 
 interface KnotFormProps {
@@ -46,11 +50,39 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose }: KnotForm
   const isEditMode = !!editTask
   const isOpen = isEditMode || isCreateOpen
 
+  // Determine Slack context for edit mode - from metadata (new) or legacy detection (old)
+  const slackContext = React.useMemo(() => {
+    if (!editTask) return null
+
+    // Check metadata first (new Slack tasks)
+    if (isSlackMetadata(editTask.metadata)) {
+      return {
+        isSlack: true,
+        subtype: editTask.metadata.source.subtype,
+        permalink: editTask.metadata.source.permalink,
+      }
+    }
+
+    // Fall back to legacy detection for old tasks
+    const detected = detectSlackTask(editTask.description)
+    if (detected.isSlack) {
+      return {
+        isSlack: true,
+        subtype: detected.subtype,
+        permalink: detected.permalink,
+      }
+    }
+
+    return null
+  }, [editTask])
+
   // When editTask changes, populate form fields
+  // Strip legacy Slack source block from description for cleaner editing
   React.useEffect(() => {
     if (editTask) {
       setTitle(editTask.title)
-      setDescription(editTask.description)
+      // Clean up description by removing legacy "---\nSource: Slack..." block
+      setDescription(prepareDescriptionForEdit(editTask.description))
       setError("")
       setTouched(false)
     }
@@ -233,6 +265,40 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose }: KnotForm
                 style={{ touchAction: "manipulation" }}
               />
             </div>
+
+            {/* Read-only Slack context section for Slack-origin tasks */}
+            {isEditMode && slackContext?.isSlack && (
+              <div className="mb-6 pt-4 border-t border-border/40">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+                  {/* Slack icon */}
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.166a2.528 2.528 0 0 1-2.52 2.521h-6.313z" />
+                  </svg>
+                  <span>
+                    Captured from Slack {slackContext.subtype === 'dm' ? 'DM' : 'mention'}
+                  </span>
+                  {slackContext.permalink && (
+                    <>
+                      <span className="text-muted-foreground/40">·</span>
+                      <a
+                        href={slackContext.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 text-primary/70 hover:text-primary transition-colors"
+                      >
+                        View in Slack
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-4">
               <Button

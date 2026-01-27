@@ -9,6 +9,7 @@ import { SignIn } from "@/components/auth/sign-in"
 import { Unauthorized } from "@/components/auth/unauthorized"
 import { HamburgerMenu } from "@/components/hamburger-menu"
 import { ResetPassword } from "@/components/auth/reset-password"
+import { TaskMetadata } from "@/lib/types"
 
 interface Knot {
   id: string
@@ -16,6 +17,7 @@ interface Knot {
   description: string
   status: "active" | "completed"
   position: number
+  metadata?: TaskMetadata
 }
 
 export default function Page() {
@@ -79,6 +81,7 @@ export default function Page() {
               description: newTask.description || '',
               status: newTask.status,
               position: newTask.position ?? 0,
+              metadata: newTask.metadata || undefined,
             }
 
             // Add new knot if it doesn't already exist (cross-tab sync)
@@ -107,6 +110,7 @@ export default function Page() {
                       description: updatedTask.description || '',
                       status: updatedTask.status,
                       position: updatedTask.position ?? k.position,
+                      metadata: updatedTask.metadata ?? k.metadata,
                     }
                   : k
               )
@@ -145,6 +149,7 @@ export default function Page() {
         description: task.description || '',
         status: task.status as 'active' | 'completed',
         position: task.position ?? 0,
+        metadata: task.metadata || undefined,
       }))
 
       setKnots(formattedKnots)
@@ -282,6 +287,7 @@ export default function Page() {
         description: newTask.description || '',
         status: newTask.status,
         position: newTask.position ?? 0,
+        metadata: newTask.metadata || undefined,
       }
 
       // Mark as locally created BEFORE updating state
@@ -306,6 +312,7 @@ export default function Page() {
         id: knot.id,
         title: knot.title,
         description: knot.description,
+        metadata: knot.metadata,
       })
     }
   }, [knots])

@@ -3,11 +3,13 @@ import {
   shouldCreateTask,
   extractTaskTitle,
   formatTaskDescription,
+  buildSlackMetadata,
   isUrlVerification,
   isEventCallback,
   type SlackMessageEvent,
   type SlackEventCallback,
   type SlackUrlVerification,
+  type SlackTaskMetadata,
 } from '../lib/slack/event-handlers'
 
 describe('shouldCreateTask', () => {
@@ -125,57 +127,145 @@ describe('extractTaskTitle', () => {
     expect(extractTaskTitle('Hello    world')).toBe('Hello world')
   })
 
-  it('should remove user mentions', () => {
-    expect(extractTaskTitle('<@U123> please review this')).toBe('please review this')
+  it('should normalize user mentions to @user', () => {
+    // normalizeSlackText converts <@U123> to @user
+    expect(extractTaskTitle('<@U123> please review this')).toBe('@user please review this')
   })
 
-  it('should remove multiple user mentions', () => {
-    expect(extractTaskTitle('<@U123> and <@U456> check this')).toBe('and check this')
+  it('should normalize multiple user mentions', () => {
+    expect(extractTaskTitle('<@U123> and <@U456> check this')).toBe('@user and @user check this')
   })
 
   it('should truncate long text', () => {
     const longText = 'A'.repeat(200)
     const result = extractTaskTitle(longText, 120)
-    expect(result.length).toBe(120)
+    expect(result.length).toBeLessThanOrEqual(120)
     expect(result.endsWith('...')).toBe(true)
   })
 
-  it('should return default for empty text after removing mentions', () => {
+  it('should return fallback for mention-only text', () => {
+    // After normalization, <@U123> becomes @user which triggers fallback
     expect(extractTaskTitle('<@U123>')).toBe('Slack message')
+  })
+
+  it('should return fallback for empty text', () => {
+    expect(extractTaskTitle('')).toBe('Slack message')
+  })
+
+  it('should extract first sentence for long messages', () => {
+    const text = 'Please review this PR. It contains the new feature implementation.'
+    expect(extractTaskTitle(text)).toBe('Please review this PR.')
   })
 })
 
 describe('formatTaskDescription', () => {
-  it('should include message text', () => {
-    const result = formatTaskDescription('Hello world', undefined, 'dm')
-    expect(result).toContain('Hello world')
+  it('should return normalized message text', () => {
+    const result = formatTaskDescription('Hello world')
+    expect(result).toBe('Hello world')
   })
 
-  it('should include sender name when provided', () => {
-    const result = formatTaskDescription('Hello', 'John Doe', 'dm')
-    expect(result).toContain('From: John Doe')
+  it('should normalize Slack user mentions', () => {
+    const result = formatTaskDescription('<@U123> please review this')
+    expect(result).toBe('@user please review this')
   })
 
-  it('should indicate DM source', () => {
-    const result = formatTaskDescription('Hello', undefined, 'dm')
-    expect(result).toContain('Source: Slack DM')
-  })
-
-  it('should indicate mention source', () => {
-    const result = formatTaskDescription('Hello', undefined, 'mention')
-    expect(result).toContain('Source: Slack mention')
-  })
-
-  it('should include permalink when provided', () => {
-    const result = formatTaskDescription('Hello', undefined, 'dm', 'https://slack.com/link')
-    expect(result).toContain('Link: https://slack.com/link')
+  it('should normalize Slack URL tokens', () => {
+    const result = formatTaskDescription('Check <https://example.com|this link>')
+    expect(result).toBe('Check this link')
   })
 
   it('should truncate very long text', () => {
     const longText = 'A'.repeat(3000)
-    const result = formatTaskDescription(longText, undefined, 'dm')
-    expect(result.length).toBeLessThan(3000)
+    const result = formatTaskDescription(longText)
+    expect(result.length).toBeLessThanOrEqual(2000)
     expect(result).toContain('...')
+  })
+
+  it('should handle empty text', () => {
+    const result = formatTaskDescription('')
+    expect(result).toBe('')
+  })
+})
+
+describe('buildSlackMetadata', () => {
+  const baseEvent: SlackMessageEvent = {
+    type: 'message',
+    channel: 'C123456',
+    user: 'U999',
+    text: 'Hello world',
+    ts: '1234567890.123456',
+  }
+
+  it('should build metadata for DM', () => {
+    const metadata = buildSlackMetadata(baseEvent, 'T123', 'dm')
+
+    expect(metadata.source.type).toBe('slack')
+    expect(metadata.source.subtype).toBe('dm')
+    expect(metadata.source.team_id).toBe('T123')
+    expect(metadata.source.channel_id).toBe('C123456')
+    expect(metadata.source.message_ts).toBe('1234567890.123456')
+    expect(metadata.raw.slack_text).toBe('Hello world')
+  })
+
+  it('should build metadata for mention', () => {
+    const metadata = buildSlackMetadata(baseEvent, 'T123', 'mention')
+
+    expect(metadata.source.subtype).toBe('mention')
+  })
+
+  it('should include permalink when provided', () => {
+    const metadata = buildSlackMetadata(
+      baseEvent,
+      'T123',
+      'dm',
+      undefined,
+      undefined,
+      'https://slack.com/archives/C123/p456'
+    )
+
+    expect(metadata.source.permalink).toBe('https://slack.com/archives/C123/p456')
+  })
+
+  it('should include author info when provided', () => {
+    const metadata = buildSlackMetadata(
+      baseEvent,
+      'T123',
+      'dm',
+      'U999',
+      'John Doe'
+    )
+
+    expect(metadata.source.author?.slack_user_id).toBe('U999')
+    expect(metadata.source.author?.display_name).toBe('John Doe')
+  })
+
+  it('should include author user ID without display name', () => {
+    const metadata = buildSlackMetadata(
+      baseEvent,
+      'T123',
+      'dm',
+      'U999'
+    )
+
+    expect(metadata.source.author?.slack_user_id).toBe('U999')
+    expect(metadata.source.author?.display_name).toBeUndefined()
+  })
+
+  it('should not include author when not provided', () => {
+    const metadata = buildSlackMetadata(baseEvent, 'T123', 'dm')
+
+    expect(metadata.source.author).toBeUndefined()
+  })
+
+  it('should store raw slack text in metadata', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '<@U123> check this <https://example.com|link>',
+    }
+    const metadata = buildSlackMetadata(event, 'T123', 'mention')
+
+    // Raw text should be preserved with original Slack tokens
+    expect(metadata.raw.slack_text).toBe('<@U123> check this <https://example.com|link>')
   })
 })
 

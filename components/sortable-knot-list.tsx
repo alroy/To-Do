@@ -23,6 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState, useCallback, useRef, useEffect } from "react";
 import KnotCard from "./knot-card";
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix";
+import { TaskMetadata } from "@/lib/types";
 
 interface Knot {
   id: string;
@@ -30,6 +31,7 @@ interface Knot {
   description: string;
   status: "active" | "completed";
   position: number;
+  metadata?: TaskMetadata;
 }
 
 interface SortableKnotListProps {
@@ -81,6 +83,7 @@ function SortableKnotItem({ knot, onToggle, onDelete, onEdit, isListDragging }: 
         title={knot.title}
         description={knot.description}
         status={knot.status}
+        metadata={knot.metadata}
         onToggle={onToggle}
         onDelete={onDelete}
         onEdit={onEdit}
@@ -222,6 +225,7 @@ export function SortableKnotList({
             title={activeKnot.title}
             description={activeKnot.description}
             status={activeKnot.status}
+            metadata={activeKnot.metadata}
             onToggle={() => {}}
             onDelete={() => {}}
             isOverlay

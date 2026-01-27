@@ -1,4 +1,26 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeSlackText, deriveTitleFromSlackMessage } from './text-utils'
+
+/**
+ * Slack task metadata structure stored in tasks.metadata column
+ */
+export interface SlackTaskMetadata {
+  source: {
+    type: 'slack'
+    subtype: 'dm' | 'mention'
+    team_id: string
+    channel_id: string
+    message_ts: string
+    permalink?: string
+    author?: {
+      slack_user_id: string
+      display_name?: string
+    }
+  }
+  raw: {
+    slack_text: string
+  }
+}
 
 /**
  * Slack event types we handle
@@ -92,59 +114,70 @@ export function shouldCreateTask(
 
 /**
  * Extract task title from Slack message text
+ * Uses the text-utils deriveTitleFromSlackMessage for consistent normalization
  */
 export function extractTaskTitle(text: string, maxLength = 120): string {
-  // Remove user mentions for cleaner title
-  let title = text.replace(/<@[A-Z0-9]+>/g, '').trim()
-
-  // Collapse whitespace
-  title = title.replace(/\s+/g, ' ')
-
-  // Truncate if needed
-  if (title.length > maxLength) {
-    title = title.substring(0, maxLength - 3) + '...'
-  }
-
-  return title || 'Slack message'
+  return deriveTitleFromSlackMessage(text, maxLength)
 }
 
 /**
- * Format task description with Slack context
+ * Format task description from Slack message
+ * Returns only the normalized message text - Slack context is stored in metadata
  */
-export function formatTaskDescription(
-  text: string,
-  senderName: string | undefined,
-  channelType: 'dm' | 'mention',
-  permalink?: string
-): string {
+export function formatTaskDescription(text: string): string {
   const maxTextLength = 2000
-  const truncatedText = text.length > maxTextLength
-    ? text.substring(0, maxTextLength) + '...'
-    : text
 
-  const parts: string[] = []
+  // Normalize Slack tokens for cleaner description
+  const normalized = normalizeSlackText(text)
 
-  // Add message text
-  parts.push(truncatedText)
-
-  // Add context
-  const contextParts: string[] = []
-  if (senderName) {
-    contextParts.push(`From: ${senderName}`)
+  // Truncate if needed
+  if (normalized.length > maxTextLength) {
+    return normalized.substring(0, maxTextLength - 3) + '...'
   }
-  contextParts.push(`Source: Slack ${channelType === 'dm' ? 'DM' : 'mention'}`)
 
+  return normalized
+}
+
+/**
+ * Build metadata object for a Slack-created task
+ */
+export function buildSlackMetadata(
+  event: SlackMessageEvent,
+  teamId: string,
+  subtype: 'dm' | 'mention',
+  senderUserId?: string,
+  senderDisplayName?: string,
+  permalink?: string
+): SlackTaskMetadata {
+  const metadata: SlackTaskMetadata = {
+    source: {
+      type: 'slack',
+      subtype,
+      team_id: teamId,
+      channel_id: event.channel,
+      message_ts: event.ts,
+    },
+    raw: {
+      slack_text: event.text || '',
+    },
+  }
+
+  // Add permalink if available
   if (permalink) {
-    contextParts.push(`Link: ${permalink}`)
+    metadata.source.permalink = permalink
   }
 
-  if (contextParts.length > 0) {
-    parts.push('')
-    parts.push('---')
-    parts.push(contextParts.join(' | '))
+  // Add author info if available
+  if (senderUserId) {
+    metadata.source.author = {
+      slack_user_id: senderUserId,
+    }
+    if (senderDisplayName) {
+      metadata.source.author.display_name = senderDisplayName
+    }
   }
 
-  return parts.join('\n')
+  return metadata
 }
 
 /**
@@ -216,10 +249,17 @@ export async function processSlackEvent(
 
     // Step 4: Create task for this user
     const title = extractTaskTitle(event.text || '')
-    const description = formatTaskDescription(
-      event.text || '',
-      undefined, // Could resolve sender name with additional API call
-      check.isDM ? 'dm' : 'mention'
+    const description = formatTaskDescription(event.text || '')
+    const subtype = check.isDM ? 'dm' : 'mention'
+
+    // Build metadata for Slack context (stored separately from description)
+    const metadata = buildSlackMetadata(
+      event,
+      team_id,
+      subtype,
+      event.user, // sender's Slack user ID
+      undefined,  // display name (could resolve with additional API call)
+      undefined   // permalink (could generate with additional API call)
     )
 
     // Get current max position to put task at top
@@ -249,6 +289,7 @@ export async function processSlackEvent(
         status: 'active',
         user_id,
         position: newPosition,
+        metadata,
       })
       .select('id')
       .single()

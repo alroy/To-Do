@@ -221,6 +221,12 @@ describe('stripSlackSourceBlock', () => {
     const input = 'Line 1\nLine 2\nLine 3\n---\nSource: Slack DM'
     expect(stripSlackSourceBlock(input)).toBe('Line 1\nLine 2\nLine 3')
   })
+
+  it('should handle double newline before source block (legacy format)', () => {
+    // Legacy format had an empty line before ---
+    const input = '<@U086UUC531P> test message\n\n---\nSource: Slack mention'
+    expect(stripSlackSourceBlock(input)).toBe('<@U086UUC531P> test message')
+  })
 })
 
 describe('detectSlackTask', () => {

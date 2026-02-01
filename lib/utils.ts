@@ -13,7 +13,17 @@ export function cn(...inputs: ClassValue[]) {
 export function formatRelativeTime(timestamp: string | Date | null | undefined): string | null {
   if (!timestamp) return null
 
-  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
+  let date: Date
+  if (typeof timestamp === 'string') {
+    // Ensure UTC timestamps are parsed correctly
+    // Supabase returns timestamps without 'Z' suffix, so we add it if missing
+    const normalizedTimestamp = timestamp.endsWith('Z') || timestamp.includes('+')
+      ? timestamp
+      : timestamp + 'Z'
+    date = new Date(normalizedTimestamp)
+  } else {
+    date = timestamp
+  }
 
   // Check for invalid date
   if (isNaN(date.getTime())) return null

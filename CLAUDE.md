@@ -87,6 +87,27 @@ Reusable UI components:
 ### `/lib/supabase.ts`
 Supabase client configuration for database operations.
 
+### `/lib/utils.ts`
+Utility functions:
+- `cn()` - Tailwind class name merger
+- `formatRelativeTime()` - Formats timestamps as relative time (e.g., "just now", "10 min ago", "yesterday", "3 days ago"). After 7 days, shows absolute date (e.g., "Jan 24"). Handles UTC timestamps from Supabase correctly.
+
+## Task Timestamps
+
+### Display Format
+- `just now` - Less than 1 minute ago
+- `X min ago` - Less than 1 hour
+- `X hours ago` - Less than 24 hours
+- `yesterday` - 1 day ago
+- `X days ago` - 2-6 days ago
+- `Jan 24` - 7+ days (absolute date, no year)
+
+### Implementation
+- Each task has a `created_at` timestamp (stored in UTC)
+- Displayed below the task title in muted text (`text-xs text-muted-foreground`)
+- Falls back to "just now" if timestamp is unavailable
+- UTC timestamps from Supabase are normalized (appends 'Z' suffix if missing) to ensure correct timezone handling
+
 ## Development Workflow
 
 ### Git Branches
@@ -117,6 +138,9 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - ✅ Optimistic UI updates with error handling
 - ✅ All CSS variables defined for card styling
 - ✅ Unit tests for cross-tab sync state updates
+- ✅ Task timestamps with relative time display
+- ✅ New tasks appear first in list (position 0)
+- ✅ Slack-created tasks appear in real-time without refresh
 
 ## Important Notes
 - Always use optimistic updates for better UX
@@ -128,6 +152,8 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - Button component supports size prop for different variants
 - Focus states use 1px ring with 20% opacity
 - Cards use accent-hover and accent-subtle variables for states
+- New tasks always appear at top of list (position 0), database trigger handles position shifting
+- Slack-created tasks trigger real-time INSERT events and appear without page refresh
 
 ## Testing
 Run tests with: `npm test`

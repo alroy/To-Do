@@ -4,19 +4,20 @@
  * Re-exports all modules for the mention-only task creation pipeline.
  */
 
-// Types
-export {
+// Types (use export type for isolatedModules compatibility)
+export type {
   SlackIngestMessage,
   LLMTaskClassification,
-  LLMTaskClassificationSchema,
   ValidatedLLMResponse,
   IngestDecision,
   IngestPipelineResult,
   IngestLogEntry,
   TaskFromSourceInput,
-  INGEST_THRESHOLDS,
   LLMTaskType,
 } from './types'
+
+// Values from types
+export { LLMTaskClassificationSchema, INGEST_THRESHOLDS } from './types'
 
 // Normalization
 export {
@@ -34,27 +35,32 @@ export {
   ensurePermalink,
 } from './permalink'
 
-// Actionability scoring
+// Actionability scoring (types)
+export type { ActionabilityResult } from './actionability'
+
+// Actionability scoring (values)
 export {
   computeActionabilityScore,
   shouldCallLLM,
   getRequiredConfidence,
-  ActionabilityResult,
 } from './actionability'
 
-// LLM classification
+// LLM classification (types)
+export type { ClassificationResult, FallbackResult } from './classify'
+
+// LLM classification (values)
 export {
   classifySlackMention,
   classifyWithFallback,
   createFallbackFromMessage,
-  ClassificationResult,
-  FallbackResult,
 } from './classify'
 
-// Task creation
+// Task creation (types)
+export type { CreateTaskResult } from './create-task'
+
+// Task creation (values)
 export {
   createTaskFromSource,
   buildTaskInput,
   taskExistsForSource,
-  CreateTaskResult,
 } from './create-task'

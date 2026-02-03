@@ -1,6 +1,18 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeSlackText, deriveTitleFromSlackMessage } from './text-utils'
-import { resolveUserMentions, SlackUserMap } from './api'
+import { resolveUserMentions, SlackUserMap, fetchSlackUser } from './api'
+import {
+  normalizeSlackPayload,
+  computeActionabilityScore,
+  shouldCallLLM,
+  getRequiredConfidence,
+  classifySlackMention,
+  createFallbackFromMessage,
+  buildTaskInput,
+  createTaskFromSource,
+  ensurePermalink,
+  generateSourceId,
+} from './ingest'
 
 /**
  * Slack task metadata structure stored in tasks.metadata column
@@ -200,6 +212,154 @@ export interface ProcessEventResult {
 }
 
 /**
+ * Result of processing a mention with LLM
+ */
+interface MentionLLMResult {
+  processed: boolean
+  taskId?: string
+  reason?: string
+}
+
+/**
+ * Process a mention using the heuristic + LLM pipeline
+ */
+async function processMentionWithLLM(
+  supabase: SupabaseClient,
+  eventPayload: SlackEventCallback,
+  userId: string,
+  slackUserId: string,
+  accessToken: string
+): Promise<MentionLLMResult> {
+  const { event, team_id } = eventPayload
+
+  try {
+    // Normalize the Slack payload
+    const normalized = normalizeSlackPayload(
+      eventPayload as Parameters<typeof normalizeSlackPayload>[0],
+      { currentSlackUserId: slackUserId }
+    )
+
+    if (!normalized) {
+      return { processed: false, reason: 'normalization_failed' }
+    }
+
+    // Fetch permalink
+    if (accessToken) {
+      const permalink = await ensurePermalink(
+        accessToken,
+        normalized.channel_id,
+        normalized.message_ts
+      )
+      if (permalink) {
+        normalized.permalink = permalink
+      }
+    }
+
+    // Get sender display name
+    if (accessToken && event.user) {
+      try {
+        const userInfo = await fetchSlackUser(accessToken, event.user)
+        if (userInfo?.display_name) {
+          normalized.user_name = userInfo.display_name
+        }
+      } catch {
+        // Continue without user name
+      }
+    }
+
+    // Compute actionability score
+    const actionabilityResult = computeActionabilityScore(normalized)
+    const score = actionabilityResult.score
+    const sourceId = generateSourceId(normalized)
+
+    // Log the decision
+    const logDecision = async (
+      llmCalled: boolean,
+      llmIsTask: boolean | undefined,
+      llmConfidence: number | undefined,
+      decision: string
+    ) => {
+      try {
+        await supabase.from('slack_mention_ingest_log').insert({
+          source_id: sourceId,
+          user_id: userId,
+          actionability_score: score,
+          llm_called: llmCalled,
+          llm_is_task: llmIsTask,
+          llm_confidence: llmConfidence,
+          decision,
+        })
+      } catch (error) {
+        console.error('Failed to log ingest decision:', error)
+      }
+    }
+
+    // Check if we should call the LLM
+    if (!shouldCallLLM(score)) {
+      await logDecision(false, undefined, undefined, 'dropped_low_actionability')
+      return { processed: true, reason: 'dropped_low_actionability' }
+    }
+
+    // Call LLM for classification
+    const classificationResult = await classifySlackMention(normalized)
+
+    let classification = classificationResult.classification
+    let usedFallback = false
+
+    // Handle LLM failure with fallback
+    if (!classificationResult.success || !classification) {
+      const fallback = createFallbackFromMessage(normalized)
+      classification = {
+        is_task: true,
+        confidence: 0.5,
+        title: fallback.title,
+        description: fallback.description,
+        why: fallback.llm_why,
+      }
+      usedFallback = true
+    }
+
+    // Check if LLM says it's not a task
+    if (!classification.is_task) {
+      await logDecision(true, false, classification.confidence, 'dropped_low_confidence')
+      return { processed: true, reason: 'llm_not_task' }
+    }
+
+    // Check confidence threshold
+    const requiredConfidence = getRequiredConfidence(score)
+    if (classification.confidence < requiredConfidence) {
+      await logDecision(true, true, classification.confidence, 'dropped_low_confidence')
+      return { processed: true, reason: 'low_confidence' }
+    }
+
+    // Create task using the new pipeline
+    const taskInput = buildTaskInput(userId, normalized, classification)
+    const createResult = await createTaskFromSource(supabase, taskInput)
+
+    if (createResult.deduped) {
+      await logDecision(true, true, classification.confidence, 'deduped')
+      return { processed: true, reason: 'deduped' }
+    }
+
+    if (!createResult.success) {
+      return { processed: false, reason: createResult.error }
+    }
+
+    await logDecision(
+      true,
+      true,
+      classification.confidence,
+      usedFallback ? 'llm_failed_validation' : 'created'
+    )
+
+    return { processed: true, taskId: createResult.taskId }
+  } catch (error) {
+    console.error('Error in LLM mention processing:', error)
+    return { processed: false, reason: 'llm_pipeline_error' }
+  }
+}
+
+/**
  * Process a Slack event callback and create a task if appropriate
  */
 export async function processSlackEvent(
@@ -256,7 +416,29 @@ export async function processSlackEvent(
       continue
     }
 
-    // Step 4: Resolve user mentions to display names
+    // Step 4: For mentions, use the heuristic + LLM pipeline
+    if (check.isMention && process.env.ANTHROPIC_API_KEY) {
+      const result = await processMentionWithLLM(
+        supabase,
+        eventPayload,
+        user_id,
+        slack_user_id,
+        access_token
+      )
+
+      if (result.processed) {
+        if (result.taskId) {
+          await updateIngestStatus(supabase, team_id, event_id, 'processed', result.taskId)
+          return { status: 'processed', taskId: result.taskId }
+        } else {
+          await updateIngestStatus(supabase, team_id, event_id, 'ignored', undefined, result.reason)
+          return { status: 'ignored', reason: result.reason }
+        }
+      }
+      // If LLM pipeline failed, fall through to legacy behavior
+    }
+
+    // Step 5: Resolve user mentions to display names (for DMs or fallback)
     let userMap: SlackUserMap = {}
     let senderDisplayName: string | undefined
 
@@ -271,7 +453,6 @@ export async function processSlackEvent(
             senderDisplayName = userMap[event.user]
           } else {
             // Sender wasn't mentioned, fetch their info separately
-            const { fetchSlackUser } = await import('./api')
             const senderInfo = await fetchSlackUser(access_token, event.user)
             if (senderInfo?.display_name) {
               senderDisplayName = senderInfo.display_name
@@ -286,7 +467,7 @@ export async function processSlackEvent(
       }
     }
 
-    // Step 5: Create task for this user
+    // Step 6: Create task for this user (DMs or fallback for mentions)
     const title = extractTaskTitle(event.text || '', userMap)
     const description = formatTaskDescription(event.text || '', userMap)
     const subtype = check.isDM ? 'dm' : 'mention'
@@ -323,7 +504,7 @@ export async function processSlackEvent(
       return { status: 'failed', error: taskError.message }
     }
 
-    // Step 5: Update ingest record with task_id
+    // Step 7: Update ingest record with task_id
     await updateIngestStatus(supabase, team_id, event_id, 'processed', newTask.id)
 
     return { status: 'processed', taskId: newTask.id }

@@ -202,11 +202,14 @@ Strong negative signals (informational routing):
 - `lib/slack/ingest/create-task.ts` - Task creation with dedupe
 - `app/api/ingest/slack-mention/route.ts` - API endpoint
 
-### Environment Variables
-```
-ANTHROPIC_API_KEY=your-key        # Required for LLM classification
-STORE_RAW_SLACK_TEXT=false        # Optional: store raw message text
-```
+### Setup Requirements
+1. **Database Migration** - Run `supabase-migration-task-provenance.sql` in Supabase SQL Editor
+2. **Environment Variables** - Add to `.env.local`:
+   ```
+   ANTHROPIC_API_KEY=your-key        # Required for LLM classification
+   STORE_RAW_SLACK_TEXT=false        # Optional: store raw message text
+   ```
+3. **API Endpoint** - Point Slack events to `/api/ingest/slack-mention` (or use existing `/api/slack/events` which still works for basic ingestion)
 
 ## Testing
 Run tests with: `npm test`

@@ -215,7 +215,6 @@ export default function KnotCard({
         {/* Slack context badge for Slack-origin tasks */}
         {slackContext.isSlack && (
           <SlackBadge
-            subtype={slackContext.subtype}
             authorName={slackContext.authorName}
             permalink={slackContext.permalink}
             className="mt-2"

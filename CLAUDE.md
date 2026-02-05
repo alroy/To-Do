@@ -178,7 +178,7 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 Slack-origin tasks display a source row at the bottom of the card:
 - **Format:** Slack icon + "[author_name] via Slack" as clickable link
 - **Link behavior:** Opens Slack permalink in new tab (`target="_blank"`)
-- **Fallback:** Shows "Slack" (linked) if author name unavailable
+- **Fallback:** Shows "Unknown via Slack" (linked) if author name unavailable
 
 ### When Source Row Renders
 The row appears when all conditions are met:

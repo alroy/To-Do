@@ -27,8 +27,10 @@ function SlackIcon({ className }: { className?: string }) {
  * Shows Slack icon with "{name} via Slack" as clickable link
  */
 export function SlackBadge({ authorName, permalink, className }: SlackBadgeProps) {
-  // Determine display text: "{name} via Slack" or just "Slack" as fallback
-  const displayText = authorName ? `${authorName} via Slack` : 'Slack'
+  // Trim author name and check for actual content
+  const name = authorName?.trim()
+  // Use "Unknown via Slack" fallback to surface data wiring issues (never plain "Slack")
+  const displayText = name ? `${name} via Slack` : 'Unknown via Slack'
 
   // If we have a permalink, render as clickable link
   if (permalink) {

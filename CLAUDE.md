@@ -155,7 +155,7 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 - ✅ Slack mention ingestion with heuristic + LLM pipeline
 - ✅ Actionability scoring to filter non-actionable mentions
 - ✅ Task deduplication based on source_id
-- ✅ Slack source row on task cards (icon + "From [name]" link to Slack)
+- ✅ Slack source row on task cards (icon + "[name] via Slack" link)
 
 ## Important Notes
 - Always use optimistic updates for better UX
@@ -174,9 +174,9 @@ Retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s) on network failur
 
 ### Source Row on Task Cards
 Slack-origin tasks display a source row at the bottom of the card:
-- **Format:** Slack icon + "From [author_name]" as clickable link
+- **Format:** Slack icon + "[author_name] via Slack" as clickable link
 - **Link behavior:** Opens Slack permalink in new tab (`target="_blank"`)
-- **Fallback:** Shows "From Slack" if author name unavailable
+- **Fallback:** Shows "Slack" (linked) if author name unavailable
 
 ### When Source Row Renders
 The row appears when all conditions are met:

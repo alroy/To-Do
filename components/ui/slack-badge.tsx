@@ -1,7 +1,6 @@
 "use client"
 
 interface SlackBadgeProps {
-  subtype?: 'dm' | 'mention' | string
   authorName?: string
   permalink?: string
   className?: string
@@ -25,15 +24,11 @@ function SlackIcon({ className }: { className?: string }) {
 
 /**
  * Compact footer for Slack-origin tasks
- * Shows Slack icon with "From [sender_name]" as clickable link
+ * Shows Slack icon with "{name} via Slack" as clickable link
  */
-export function SlackBadge({ subtype, authorName, permalink, className }: SlackBadgeProps) {
-  // Determine display text
-  const displayText = authorName
-    ? `From ${authorName}`
-    : subtype === 'dm'
-      ? 'From Slack DM'
-      : 'From Slack'
+export function SlackBadge({ authorName, permalink, className }: SlackBadgeProps) {
+  // Determine display text: "{name} via Slack" or just "Slack" as fallback
+  const displayText = authorName ? `${authorName} via Slack` : 'Slack'
 
   // If we have a permalink, render as clickable link
   if (permalink) {

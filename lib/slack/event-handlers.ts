@@ -259,24 +259,19 @@ async function processMentionWithLLM(
     if (accessToken && event.user) {
       try {
         const userInfo = await fetchSlackUser(accessToken, event.user)
-        console.log('[Slack Ingest] fetchSlackUser result:', {
-          userId: event.user,
-          userInfo,
-          displayName: userInfo?.display_name,
-        })
         if (userInfo?.display_name) {
           normalized.user_name = userInfo.display_name
         } else {
-          console.warn('[Slack Ingest] No display_name returned for user:', event.user)
+          // Fallback: use Slack user ID to verify code path is running
+          normalized.user_name = `user:${event.user}`
         }
       } catch (error) {
-        console.error('[Slack Ingest] Failed to fetch user info:', error)
+        // Fallback on error: use Slack user ID with error marker
+        normalized.user_name = `error:${event.user}`
       }
     } else {
-      console.warn('[Slack Ingest] Cannot fetch user - missing:', {
-        hasAccessToken: !!accessToken,
-        hasEventUser: !!event.user,
-      })
+      // Fallback when no token/user: mark as missing
+      normalized.user_name = event.user ? `no-token:${event.user}` : 'no-user'
     }
 
     // Compute actionability score
@@ -345,12 +340,7 @@ async function processMentionWithLLM(
     }
 
     // Create task using the new pipeline
-    console.log('[Slack Ingest] Building task input:', {
-      normalizedUserName: normalized.user_name,
-      userId: event.user,
-    })
     const taskInput = buildTaskInput(userId, normalized, classification)
-    console.log('[Slack Ingest] Task input source_author_name:', taskInput.source_author_name)
     const createResult = await createTaskFromSource(supabase, taskInput)
 
     if (createResult.deduped) {

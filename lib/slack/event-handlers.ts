@@ -78,6 +78,11 @@ export interface SlackMessageEvent {
   bot_id?: string
   team?: string
   attachments?: SlackAttachment[]
+  /** Slack message metadata (app-to-app signals, e.g. knots.granola) */
+  metadata?: {
+    event_type: string
+    event_payload?: Record<string, unknown>
+  }
 }
 
 export interface SlackEventCallback {
@@ -217,6 +222,45 @@ export function extractForwardedOriginal(event: SlackMessageEvent): ForwardedOri
   }
 
   return fallback
+}
+
+/**
+ * Detected Granola context from Slack message metadata
+ */
+export interface GranolaContext {
+  isGranola: true
+  granolaUrl: string
+  authorName?: string
+  authorId?: string
+}
+
+/**
+ * Detect if a Slack message carries Granola metadata (from n8n automation).
+ *
+ * Looks for `event.metadata.event_type === "knots.granola"` and extracts
+ * the Granola URL and optional author info from `event_payload`.
+ *
+ * Returns null if not a Granola message or if granola_url is missing.
+ */
+export function detectGranolaMetadata(event: SlackMessageEvent): GranolaContext | null {
+  if (!event.metadata) return null
+  if (event.metadata.event_type !== 'knots.granola') return null
+
+  const payload = event.metadata.event_payload
+  if (!payload) return null
+
+  const granolaUrl = payload.granola_url
+  if (typeof granolaUrl !== 'string' || !granolaUrl) {
+    console.error('knots.granola metadata missing granola_url, falling back to normal DM')
+    return null
+  }
+
+  return {
+    isGranola: true,
+    granolaUrl,
+    authorName: typeof payload.granola_author_name === 'string' ? payload.granola_author_name : undefined,
+    authorId: typeof payload.granola_author_id === 'string' ? payload.granola_author_id : undefined,
+  }
 }
 
 /**
@@ -706,6 +750,9 @@ export async function processSlackEvent(
     if (check.isDM && !check.isForwarded) {
       const messageText = event.text?.trim() || ''
 
+      // Detect Granola provenance from Slack message metadata
+      const granolaCtx = detectGranolaMetadata(event)
+
       // Fetch permalink for source tracking
       let dmPermalink: string | undefined
       if (access_token) {
@@ -714,7 +761,8 @@ export async function processSlackEvent(
       }
 
       // Resolve sender display name and user mentions
-      let dmSenderName: string | undefined
+      // For Granola: prefer granola_author_name from metadata
+      let dmSenderName: string | undefined = granolaCtx?.authorName
       let dmUserMap: SlackUserMap = {}
       if (access_token) {
         if (messageText) {
@@ -725,7 +773,7 @@ export async function processSlackEvent(
           }
         }
 
-        if (event.user) {
+        if (!dmSenderName && event.user) {
           if (dmUserMap[event.user]) {
             dmSenderName = dmUserMap[event.user]
           } else {
@@ -763,38 +811,58 @@ export async function processSlackEvent(
         dmWhy = fallback.why
       }
 
+      // Determine source type and URL based on Granola detection
+      const effectiveSourceType = granolaCtx ? 'granola' : 'slack'
+      const effectiveSourceUrl = granolaCtx ? granolaCtx.granolaUrl : (dmPermalink || '')
+
       // Enforce source link in description
-      const sourceUrl = dmPermalink || ''
-      if (sourceUrl && !dmDescription.includes(sourceUrl)) {
+      if (effectiveSourceUrl && !dmDescription.includes(effectiveSourceUrl)) {
         dmDescription = dmDescription
-          ? `${dmDescription}\n\nSource: ${sourceUrl}`
-          : `Source: ${sourceUrl}`
+          ? `${dmDescription}\n\nSource: ${effectiveSourceUrl}`
+          : `Source: ${effectiveSourceUrl}`
       }
 
       // Source ID for deduplication
       const sourceId = `${team_id}:${event.channel}:${event.ts}`
 
-      // Build metadata
-      const dmMetadata: SlackTaskMetadata = {
-        source: {
-          type: 'slack',
-          subtype: 'dm',
-          team_id,
-          channel_id: event.channel,
-          message_ts: event.ts,
-          ...(dmPermalink ? { permalink: dmPermalink } : {}),
-          ...(event.user || dmSenderName ? {
-            author: {
-              slack_user_id: event.user || 'unknown',
-              ...(dmSenderName ? { display_name: dmSenderName } : {}),
+      // Build metadata — Granola tasks get their own metadata shape
+      const dmMetadata = granolaCtx
+        ? {
+            source: {
+              type: 'granola' as const,
+              granola_url: granolaCtx.granolaUrl,
+              slack_team_id: team_id,
+              slack_channel_id: event.channel,
+              slack_message_ts: event.ts,
+              ...(dmPermalink ? { slack_permalink: dmPermalink } : {}),
+              ...(dmSenderName || granolaCtx.authorId ? {
+                author: {
+                  ...(dmSenderName ? { display_name: dmSenderName } : {}),
+                  ...(granolaCtx.authorId ? { granola_author_id: granolaCtx.authorId } : {}),
+                },
+              } : {}),
             },
-          } : {}),
-        },
-        raw: {
-          slack_text: messageText,
-        },
-        ...(Object.keys(dmUserMap).length > 0 ? { user_map: dmUserMap } : {}),
-      }
+            raw: { slack_text: messageText },
+            ...(Object.keys(dmUserMap).length > 0 ? { user_map: dmUserMap } : {}),
+          }
+        : {
+            source: {
+              type: 'slack' as const,
+              subtype: 'dm' as const,
+              team_id,
+              channel_id: event.channel,
+              message_ts: event.ts,
+              ...(dmPermalink ? { permalink: dmPermalink } : {}),
+              ...(event.user || dmSenderName ? {
+                author: {
+                  slack_user_id: event.user || 'unknown',
+                  ...(dmSenderName ? { display_name: dmSenderName } : {}),
+                },
+              } : {}),
+            },
+            raw: { slack_text: messageText },
+            ...(Object.keys(dmUserMap).length > 0 ? { user_map: dmUserMap } : {}),
+          }
 
       const shouldStoreRaw = process.env.STORE_RAW_SLACK_TEXT === 'true'
 
@@ -806,9 +874,9 @@ export async function processSlackEvent(
           status: 'active',
           user_id,
           position: 0,
-          source_type: 'slack',
+          source_type: effectiveSourceType,
           source_id: sourceId,
-          source_url: sourceUrl,
+          source_url: effectiveSourceUrl,
           ingest_trigger: 'dm',
           metadata: dmMetadata,
           llm_confidence: dmConfidence,

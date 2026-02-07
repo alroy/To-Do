@@ -3,10 +3,10 @@
 import React, { useMemo } from "react"
 
 import { Checkbox } from "@/components/ui/checkbox"
-import { SlackProvenanceRow } from "@/components/ui/slack-badge"
+import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { GripVertical, Trash2 } from "lucide-react"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { TaskMetadata, SlackTaskMetadata, isSlackMetadata } from "@/lib/types"
+import { TaskMetadata, SlackTaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import {
   prepareTaskForListView,
   detectSlackTask,
@@ -61,49 +61,65 @@ export default function KnotCard({
   // Format timestamp for display
   const formattedTime = useMemo(() => formatRelativeTime(createdAt), [createdAt])
 
-  // Determine Slack context - prioritize direct DB columns, then metadata, then legacy detection
-  const slackContext = useMemo(() => {
-    // Priority 1: Direct source fields from database columns
-    // This is the primary source for Slack tasks created via the ingestion pipeline
+  // Determine provenance context - Granola, Slack DB columns, metadata, or legacy detection
+  const provenance = useMemo(() => {
+    // Priority 0: Granola provenance (from n8n automation)
+    if (sourceType === 'granola' && sourceUrl) {
+      const authorName = isGranolaMetadata(metadata)
+        ? metadata.source.author?.display_name
+        : undefined
+      return {
+        hasProvenance: true,
+        sourceType: 'granola' as const,
+        permalink: sourceUrl,
+        authorName,
+      }
+    }
+
+    // Priority 1: Direct Slack source fields from database columns
     if (sourceType === 'slack' && sourceUrl) {
-      // Get author name from metadata if available
       const authorName = isSlackMetadata(metadata)
         ? metadata.source.author?.display_name
         : undefined
-      const subtype = isSlackMetadata(metadata)
-        ? metadata.source.subtype
-        : undefined
-
       return {
-        isSlack: true,
-        subtype,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: sourceUrl,
         authorName,
       }
     }
 
     // Priority 2: Check metadata (for tasks with metadata but no source columns)
+    if (isGranolaMetadata(metadata)) {
+      return {
+        hasProvenance: true,
+        sourceType: 'granola' as const,
+        permalink: metadata.source.granola_url,
+        authorName: metadata.source.author?.display_name,
+      }
+    }
+
     if (isSlackMetadata(metadata)) {
       return {
-        isSlack: true,
-        subtype: metadata.source.subtype,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: metadata.source.permalink,
         authorName: metadata.source.author?.display_name,
       }
     }
 
-    // Priority 3: Fall back to legacy detection for old tasks
+    // Priority 3: Fall back to legacy detection for old Slack tasks
     const detected = detectSlackTask(description)
     if (detected.isSlack) {
       return {
-        isSlack: true,
-        subtype: detected.subtype,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: detected.permalink,
         authorName: detected.senderName,
       }
     }
 
-    return { isSlack: false }
+    return { hasProvenance: false }
   }, [sourceType, sourceUrl, metadata, description])
 
   // Handle click on card content area to open edit modal
@@ -212,11 +228,12 @@ export default function KnotCard({
             {displayText.description}
           </p>
         )}
-        {/* Slack context badge for Slack-origin tasks */}
-        {slackContext.isSlack && (
-          <SlackProvenanceRow
-            authorName={slackContext.authorName}
-            permalink={slackContext.permalink}
+        {/* Provenance badge for Slack/Granola-origin tasks */}
+        {provenance.hasProvenance && (
+          <ProvenanceRow
+            sourceType={'sourceType' in provenance ? provenance.sourceType : 'slack'}
+            authorName={'authorName' in provenance ? provenance.authorName : undefined}
+            permalink={'permalink' in provenance ? provenance.permalink : undefined}
             className="mt-2"
           />
         )}

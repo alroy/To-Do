@@ -12,6 +12,8 @@ import {
   createTaskFromSource,
   ensurePermalink,
   generateSourceId,
+  shapeForwardedMessage,
+  createForwardedFallback,
 } from './ingest'
 
 /**
@@ -25,7 +27,13 @@ export interface SlackTaskMetadata {
     channel_id: string
     message_ts: string
     permalink?: string
+    /** Original message author (for forwarded messages, this is the original author, not the forwarder) */
     author?: {
+      slack_user_id: string
+      display_name?: string
+    }
+    /** Who forwarded the message to the bot DM (only present for forwarded messages) */
+    forwarded_by?: {
       slack_user_id: string
       display_name?: string
     }
@@ -153,6 +161,60 @@ export function extractForwardedText(event: SlackMessageEvent): string {
   }
 
   return parts.join('\n\n') || 'Forwarded message'
+}
+
+/**
+ * Extracted details from a forwarded/shared Slack message attachment.
+ */
+export interface ForwardedOriginal {
+  text: string
+  author_id?: string
+  author_name?: string
+  channel_id?: string
+  channel_name?: string
+  ts?: string
+  permalink?: string
+  /** Which attachment field was used to identify the forward */
+  extraction_cue: 'is_msg_unfurl' | 'from_url' | 'none'
+}
+
+/**
+ * Extract the original message details from a forwarded/shared message.
+ *
+ * Inspects attachments for the original author, text, channel, and permalink.
+ * Returns a structured object with all available provenance.
+ */
+export function extractForwardedOriginal(event: SlackMessageEvent): ForwardedOriginal {
+  const fallback: ForwardedOriginal = {
+    text: event.text?.trim() || 'Forwarded message',
+    extraction_cue: 'none',
+  }
+
+  if (!event.attachments || event.attachments.length === 0) return fallback
+
+  // Find the first forwarded-message attachment
+  for (const att of event.attachments) {
+    const isForward = att.is_msg_unfurl === true ||
+      (att.from_url != null && att.from_url.includes('.slack.com/archives/'))
+
+    if (!isForward) continue
+
+    const text = att.text || att.fallback || event.text?.trim() || 'Forwarded message'
+    const cue: ForwardedOriginal['extraction_cue'] = att.is_msg_unfurl ? 'is_msg_unfurl' : 'from_url'
+
+    return {
+      text,
+      author_id: att.author_id,
+      author_name: att.author_name,
+      channel_id: att.channel_id,
+      channel_name: att.channel_name,
+      ts: att.ts,
+      permalink: att.from_url,
+      extraction_cue: cue,
+    }
+  }
+
+  return fallback
 }
 
 /**
@@ -492,60 +554,114 @@ export async function processSlackEvent(
 
     // Step 3.5: Forwarded DMs — create task unconditionally
     if (check.isForwarded) {
+      // Extract original message details (author, text, permalink)
+      const original = extractForwardedOriginal(event)
       const effectiveText = extractForwardedText(event)
+      console.log(`Forwarded DM: extraction_cue=${original.extraction_cue}, author_id=${original.author_id || 'none'}, author_name=${original.author_name || 'none'}`)
+
+      // Resolve original author display name via Slack API if we have an ID but no name
+      let originalAuthorName = original.author_name
+      let originalAuthorId = original.author_id
+      if (access_token && originalAuthorId && !originalAuthorName) {
+        try {
+          const authorInfo = await fetchSlackUser(access_token, originalAuthorId)
+          if (authorInfo?.display_name) {
+            originalAuthorName = authorInfo.display_name
+          }
+        } catch {
+          // Continue without resolved name
+        }
+      }
+
+      // Resolve forwarder display name (event.user is the person who forwarded)
+      let forwarderDisplayName: string | undefined
+      if (access_token && event.user) {
+        try {
+          const forwarderInfo = await fetchSlackUser(access_token, event.user)
+          if (forwarderInfo?.display_name) {
+            forwarderDisplayName = forwarderInfo.display_name
+          }
+        } catch {
+          // Continue without forwarder name
+        }
+      }
 
       // Resolve user mentions in the forwarded text
       let fwdUserMap: SlackUserMap = {}
-      let fwdSenderDisplayName: string | undefined
-
       if (access_token && effectiveText) {
         try {
           fwdUserMap = await resolveUserMentions(access_token, effectiveText)
-          if (event.user) {
-            if (fwdUserMap[event.user]) {
-              fwdSenderDisplayName = fwdUserMap[event.user]
-            } else {
-              const senderInfo = await fetchSlackUser(access_token, event.user)
-              if (senderInfo?.display_name) {
-                fwdSenderDisplayName = senderInfo.display_name
-                fwdUserMap[event.user] = fwdSenderDisplayName
-              }
-            }
-          }
         } catch (error) {
           console.error('Failed to resolve user mentions for forwarded DM:', error)
         }
       }
 
-      const fwdTitle = extractTaskTitle(effectiveText, fwdUserMap)
-      const fwdDescription = formatTaskDescription(effectiveText, fwdUserMap)
+      // Use LLM to shape forwarded content into a task (never vetoes creation)
+      let fwdTitle: string
+      let fwdDescription: string
+      const shaped = await shapeForwardedMessage(effectiveText, originalAuthorName)
+      if (shaped) {
+        fwdTitle = shaped.title
+        fwdDescription = shaped.description
+      } else {
+        // LLM unavailable or failed — use fallback
+        const fallback = createForwardedFallback(effectiveText)
+        fwdTitle = fallback.title
+        fwdDescription = fallback.description
+      }
 
-      // Fetch permalink for the DM message
+      // Use the original message's permalink from the attachment for source_url
+      const originalPermalink = original.permalink
       let fwdPermalink: string | undefined
       if (access_token) {
         const fetched = await ensurePermalink(access_token, event.channel, event.ts)
         if (fetched) fwdPermalink = fetched
       }
-
-      // Use the original message's permalink from the attachment for source_url
-      const originalPermalink = event.attachments?.find((a) => a.from_url)?.from_url
       const sourceUrl = originalPermalink || fwdPermalink || ''
 
+      // Append source permalink to description
+      if (sourceUrl && !fwdDescription.includes(sourceUrl)) {
+        fwdDescription = fwdDescription
+          ? `${fwdDescription}\n\nSource: ${sourceUrl}`
+          : `Source: ${sourceUrl}`
+      }
+
       // Deduplicate on the original forwarded message (not the DM ts).
-      // If the same message is forwarded twice, from_url will match.
       const sourceId = originalPermalink
         ? `fwd:${originalPermalink}`
         : `${team_id}:${event.channel}:${event.ts}`
 
-      const fwdMetadata = buildSlackMetadata(
-        { ...event, text: effectiveText },
-        team_id,
-        'dm',
-        event.user,
-        fwdSenderDisplayName,
-        fwdPermalink || originalPermalink,
-        fwdUserMap
-      )
+      // Build metadata with ORIGINAL author (not forwarder)
+      const fwdMetadata: SlackTaskMetadata = {
+        source: {
+          type: 'slack',
+          subtype: 'dm',
+          team_id,
+          channel_id: event.channel,
+          message_ts: event.ts,
+          permalink: fwdPermalink || originalPermalink,
+          // Original author — displayed on the card as "{name} via Slack"
+          ...(originalAuthorId || originalAuthorName ? {
+            author: {
+              slack_user_id: originalAuthorId || 'unknown',
+              ...(originalAuthorName ? { display_name: originalAuthorName } : {}),
+            },
+          } : {}),
+          // Forwarder — who sent this to the bot DM
+          ...(event.user ? {
+            forwarded_by: {
+              slack_user_id: event.user,
+              ...(forwarderDisplayName ? { display_name: forwarderDisplayName } : {}),
+            },
+          } : {}),
+        },
+        raw: {
+          slack_text: effectiveText,
+        },
+        ...(Object.keys(fwdUserMap).length > 0 ? { user_map: fwdUserMap } : {}),
+      }
+
+      const shouldStoreRaw = process.env.STORE_RAW_SLACK_TEXT === 'true'
 
       const { data: fwdTask, error: fwdError } = await supabase
         .from('tasks')
@@ -560,6 +676,7 @@ export async function processSlackEvent(
           source_url: sourceUrl,
           ingest_trigger: 'dm',
           metadata: fwdMetadata,
+          ...(shouldStoreRaw ? { raw_source_text: effectiveText } : {}),
         })
         .select('id')
         .single()

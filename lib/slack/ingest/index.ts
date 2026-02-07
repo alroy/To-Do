@@ -46,13 +46,15 @@ export {
 } from './actionability'
 
 // LLM classification (types)
-export type { ClassificationResult, FallbackResult } from './classify'
+export type { ClassificationResult, FallbackResult, ForwardedTaskShape } from './classify'
 
 // LLM classification (values)
 export {
   classifySlackMention,
   classifyWithFallback,
   createFallbackFromMessage,
+  shapeForwardedMessage,
+  createForwardedFallback,
 } from './classify'
 
 // Task creation (types)

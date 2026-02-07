@@ -275,6 +275,116 @@ export async function classifySlackMention(
 }
 
 /**
+ * Shaped task output from a forwarded message
+ */
+export interface ForwardedTaskShape {
+  title: string
+  description: string
+}
+
+/**
+ * Build fallback title/description from forwarded text when LLM is unavailable or fails.
+ */
+export function createForwardedFallback(text: string): ForwardedTaskShape {
+  // Clean Slack tokens
+  let cleaned = text
+    .replace(/<@[A-Z0-9]+>/gi, '@user')
+    .replace(/<#[A-Z0-9]+\|([^>]+)>/gi, '#$1')
+    .replace(/<https?:\/\/[^|>]+\|([^>]+)>/gi, '$1')
+    .replace(/<https?:\/\/[^>]+>/gi, '[link]')
+
+  // Title: first sentence or first 80 chars
+  const sentenceMatch = cleaned.match(/^(.+?[.!?])(?:\s|$)/)
+  let title = sentenceMatch ? sentenceMatch[1] : cleaned
+  if (title.length > 80) {
+    const lastSpace = title.substring(0, 77).lastIndexOf(' ')
+    title = (lastSpace > 40 ? title.substring(0, lastSpace) : title.substring(0, 77)) + '...'
+  }
+  if (title.length < 3) title = 'Forwarded message'
+
+  // Description: first 6 lines, max 500 chars
+  const lines = cleaned.split(/\n/).slice(0, 6)
+  let description = lines.join('\n')
+  if (description.length > 500) {
+    description = description.substring(0, 497) + '...'
+  }
+
+  return { title, description }
+}
+
+/**
+ * Use LLM to transform a forwarded message into a task-shaped title and description.
+ *
+ * The LLM never vetoes — it always produces a task. If the API call fails,
+ * returns null so the caller can use the fallback.
+ */
+export async function shapeForwardedMessage(
+  text: string,
+  authorName?: string
+): Promise<ForwardedTaskShape | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+
+  const client = new Anthropic({ apiKey })
+
+  const systemPrompt = `You are a task extraction assistant. A user forwarded a Slack message to their task bot. Transform this message into a clear, actionable task.
+
+The user forwarded this intentionally — it IS a task. Do not question whether it's a task.
+
+You MUST respond with valid JSON only. No markdown, no explanation.
+
+JSON Schema:
+{
+  "title": string (3-80 chars, imperative, specific, phrase as next action),
+  "description": string (1-6 lines of essential context, may be empty)
+}
+
+Title rules:
+- Phrase as the user's next action (e.g., "Review Q4 budget proposal", "Follow up on deployment timeline")
+- Keep it short and concrete
+- Do not include the author's name in the title
+
+Description rules:
+- 1-6 lines of essential context
+- Include any deadlines, requirements, or key details
+- Do NOT copy the entire message verbatim
+- Do NOT add facts not in the original message`
+
+  let userPrompt = `Transform this forwarded Slack message into a task:\n\n---\n"${text}"\n`
+  if (authorName) {
+    userPrompt += `From: ${authorName}\n`
+  }
+  userPrompt += `---\n\nRespond with JSON only.`
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 400,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    let jsonStr = raw.trim()
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim()
+
+    const parsed = JSON.parse(jsonStr)
+    const title = typeof parsed.title === 'string' && parsed.title.length >= 3 && parsed.title.length <= 80
+      ? parsed.title
+      : null
+    const description = typeof parsed.description === 'string' ? parsed.description : ''
+
+    if (!title) return null
+
+    return { title, description }
+  } catch (error) {
+    console.error('LLM shapeForwardedMessage failed:', error)
+    return null
+  }
+}
+
+/**
  * Classify with fallback - always returns a usable result
  */
 export async function classifyWithFallback(

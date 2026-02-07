@@ -6,6 +6,8 @@ import {
   buildSlackMetadata,
   isUrlVerification,
   isEventCallback,
+  isForwardedToBot,
+  extractForwardedText,
   type SlackMessageEvent,
   type SlackEventCallback,
   type SlackUrlVerification,
@@ -115,6 +117,76 @@ describe('shouldCreateTask', () => {
     const result = shouldCreateTask(event, slackUserId)
     expect(result.shouldCreate).toBe(false)
     expect(result.reason).toBe('no_dm_or_mention')
+  })
+
+  it('should create task for forwarded DM with no mention', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      channel: 'D123456',
+      channel_type: 'im',
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Please review the Q4 budget',
+          from_url: 'https://acme.slack.com/archives/C999/p1700000000000000',
+          author_name: 'Alice',
+        },
+      ],
+    }
+    const result = shouldCreateTask(event, slackUserId)
+    expect(result.shouldCreate).toBe(true)
+    expect(result.isDM).toBe(true)
+    expect(result.isForwarded).toBe(true)
+    expect(result.reason).toBe('forwarded_dm')
+  })
+
+  it('should create task for forwarded DM even with empty text', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      channel_type: 'im',
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Deploy the new build',
+          from_url: 'https://acme.slack.com/archives/C111/p1700000000000000',
+        },
+      ],
+    }
+    const result = shouldCreateTask(event, slackUserId)
+    expect(result.shouldCreate).toBe(true)
+    expect(result.isForwarded).toBe(true)
+  })
+
+  it('should NOT treat channel message with attachments as forwarded', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      channel: 'C123',
+      channel_type: 'channel',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Some shared message',
+          from_url: 'https://acme.slack.com/archives/C999/p1700000000000000',
+        },
+      ],
+    }
+    const result = shouldCreateTask(event, slackUserId)
+    expect(result.shouldCreate).toBe(false)
+    expect(result.isForwarded).toBe(false)
+  })
+
+  it('should set isForwarded=false for regular DM', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      channel_type: 'im',
+    }
+    const result = shouldCreateTask(event, slackUserId)
+    expect(result.shouldCreate).toBe(true)
+    expect(result.isDM).toBe(true)
+    expect(result.isForwarded).toBe(false)
+    expect(result.reason).toBe('dm')
   })
 })
 
@@ -266,6 +338,192 @@ describe('buildSlackMetadata', () => {
 
     // Raw text should be preserved with original Slack tokens
     expect(metadata.raw.slack_text).toBe('<@U123> check this <https://example.com|link>')
+  })
+})
+
+describe('isForwardedToBot', () => {
+  const baseEvent: SlackMessageEvent = {
+    type: 'message',
+    channel: 'D123',
+    channel_type: 'im',
+    user: 'U999',
+    text: '',
+    ts: '1234567890.123456',
+  }
+
+  it('should return true for DM with is_msg_unfurl attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Original message',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(isForwardedToBot(event)).toBe(true)
+  })
+
+  it('should return true for DM with slack archives from_url', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      attachments: [
+        {
+          text: 'Original message',
+          from_url: 'https://myteam.slack.com/archives/C456/p170000',
+        },
+      ],
+    }
+    expect(isForwardedToBot(event)).toBe(true)
+  })
+
+  it('should return false for DM without attachments', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: 'Just a regular DM',
+    }
+    expect(isForwardedToBot(event)).toBe(false)
+  })
+
+  it('should return false for DM with empty attachments', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      attachments: [],
+    }
+    expect(isForwardedToBot(event)).toBe(false)
+  })
+
+  it('should return false for DM with non-message attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      attachments: [
+        {
+          text: 'Some attachment',
+          fallback: 'fallback',
+        },
+      ],
+    }
+    expect(isForwardedToBot(event)).toBe(false)
+  })
+
+  it('should return false for channel message even with forwarded attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      channel: 'C123',
+      channel_type: 'channel',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Forwarded content',
+          from_url: 'https://acme.slack.com/archives/C789/p170000',
+        },
+      ],
+    }
+    expect(isForwardedToBot(event)).toBe(false)
+  })
+})
+
+describe('extractForwardedText', () => {
+  const baseEvent: SlackMessageEvent = {
+    type: 'message',
+    channel: 'D123',
+    channel_type: 'im',
+    user: 'U999',
+    ts: '1234567890.123456',
+  }
+
+  it('should extract text from forwarded attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Please review the budget',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('Please review the budget')
+  })
+
+  it('should combine user comment with forwarded text', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: 'Handle this please',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Deploy v2.1 to production',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('Handle this please\n\nDeploy v2.1 to production')
+  })
+
+  it('should use fallback when attachment text is missing', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          fallback: 'Fallback text for the message',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('Fallback text for the message')
+  })
+
+  it('should return event text when no attachment content', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: 'https://acme.slack.com/archives/C123/p170000',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('https://acme.slack.com/archives/C123/p170000')
+  })
+
+  it('should return default when no text at all', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('Forwarded message')
+  })
+
+  it('should only use first forwarded attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'First forwarded message',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+        {
+          is_msg_unfurl: true,
+          text: 'Second forwarded message',
+          from_url: 'https://acme.slack.com/archives/C456/p180000',
+        },
+      ],
+    }
+    expect(extractForwardedText(event)).toBe('First forwarded message')
   })
 })
 

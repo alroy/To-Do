@@ -8,11 +8,13 @@ import {
   isEventCallback,
   isForwardedToBot,
   extractForwardedText,
+  extractForwardedOriginal,
   type SlackMessageEvent,
   type SlackEventCallback,
   type SlackUrlVerification,
   type SlackTaskMetadata,
 } from '../lib/slack/event-handlers'
+import { createForwardedFallback } from '../lib/slack/ingest/classify'
 
 describe('shouldCreateTask', () => {
   const slackUserId = 'U12345'
@@ -524,6 +526,158 @@ describe('extractForwardedText', () => {
       ],
     }
     expect(extractForwardedText(event)).toBe('First forwarded message')
+  })
+})
+
+describe('extractForwardedOriginal', () => {
+  const baseEvent: SlackMessageEvent = {
+    type: 'message',
+    channel: 'D123',
+    channel_type: 'im',
+    user: 'U_FORWARDER',
+    ts: '1234567890.123456',
+  }
+
+  it('should extract original author from is_msg_unfurl attachment', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Please review the budget',
+          author_id: 'U_ORIGINAL',
+          author_name: 'Nathan Cohen',
+          channel_id: 'C999',
+          channel_name: 'finance',
+          ts: '1699000000.000000',
+          from_url: 'https://acme.slack.com/archives/C999/p1699000000000000',
+        },
+      ],
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.author_id).toBe('U_ORIGINAL')
+    expect(result.author_name).toBe('Nathan Cohen')
+    expect(result.text).toBe('Please review the budget')
+    expect(result.channel_id).toBe('C999')
+    expect(result.channel_name).toBe('finance')
+    expect(result.ts).toBe('1699000000.000000')
+    expect(result.permalink).toBe('https://acme.slack.com/archives/C999/p1699000000000000')
+    expect(result.extraction_cue).toBe('is_msg_unfurl')
+  })
+
+  it('should extract from from_url attachment without is_msg_unfurl', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          text: 'Deploy the build',
+          author_id: 'U_AUTHOR',
+          author_name: 'Alice',
+          from_url: 'https://myteam.slack.com/archives/C111/p170000',
+        },
+      ],
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.author_id).toBe('U_AUTHOR')
+    expect(result.author_name).toBe('Alice')
+    expect(result.extraction_cue).toBe('from_url')
+  })
+
+  it('should return author_id without author_name when name is missing', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          text: 'Some message',
+          author_id: 'U_NONAME',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.author_id).toBe('U_NONAME')
+    expect(result.author_name).toBeUndefined()
+  })
+
+  it('should fall back to event text when no attachments', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: 'Just a regular message',
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.text).toBe('Just a regular message')
+    expect(result.author_id).toBeUndefined()
+    expect(result.extraction_cue).toBe('none')
+  })
+
+  it('should use attachment fallback text when attachment text is missing', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: '',
+      attachments: [
+        {
+          is_msg_unfurl: true,
+          fallback: 'Fallback content',
+          author_name: 'Bob',
+          from_url: 'https://acme.slack.com/archives/C123/p170000',
+        },
+      ],
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.text).toBe('Fallback content')
+    expect(result.author_name).toBe('Bob')
+  })
+
+  it('should skip non-forwarded attachments', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      text: 'event text',
+      attachments: [
+        {
+          text: 'Some random attachment',
+          fallback: 'random',
+        },
+      ],
+    }
+    const result = extractForwardedOriginal(event)
+    expect(result.extraction_cue).toBe('none')
+    expect(result.text).toBe('event text')
+  })
+})
+
+describe('createForwardedFallback', () => {
+  it('should extract first sentence as title', () => {
+    const result = createForwardedFallback('Please review this document. It has the Q4 numbers.')
+    expect(result.title).toBe('Please review this document.')
+  })
+
+  it('should truncate long titles to 80 chars', () => {
+    const longText = 'A'.repeat(200)
+    const result = createForwardedFallback(longText)
+    expect(result.title.length).toBeLessThanOrEqual(80)
+    expect(result.title.endsWith('...')).toBe(true)
+  })
+
+  it('should handle very short text', () => {
+    const result = createForwardedFallback('Hi')
+    expect(result.title).toBe('Forwarded message')
+  })
+
+  it('should clean Slack tokens in title', () => {
+    const result = createForwardedFallback('<@U123> please check <https://example.com|this link>')
+    expect(result.title).toContain('@user')
+    expect(result.title).toContain('this link')
+    expect(result.title).not.toContain('<@U123>')
+  })
+
+  it('should limit description to 6 lines', () => {
+    const text = Array.from({ length: 10 }, (_, i) => `Line ${i + 1}`).join('\n')
+    const result = createForwardedFallback(text)
+    expect(result.description.split('\n').length).toBeLessThanOrEqual(6)
   })
 })
 

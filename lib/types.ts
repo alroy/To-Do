@@ -18,7 +18,13 @@ export interface SlackTaskMetadata {
     channel_id: string
     message_ts: string
     permalink?: string
+    /** Original message author (for forwarded messages, this is the original author, not the forwarder) */
     author?: {
+      slack_user_id: string
+      display_name?: string
+    }
+    /** Who forwarded the message to the bot DM (only present for forwarded messages) */
+    forwarded_by?: {
       slack_user_id: string
       display_name?: string
     }

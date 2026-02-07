@@ -98,7 +98,8 @@ export interface ForwardedDetectionCues {
   has_attachment_msg_unfurl: boolean
   has_attachment_from_url: boolean
   has_subtype_share: boolean
-  has_rich_text_with_broadcast: boolean
+  has_rich_text_quote: boolean
+  has_rich_text_link_to_slack: boolean
   has_root_or_nested_message: boolean
 }
 
@@ -137,7 +138,8 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
     has_attachment_msg_unfurl: false,
     has_attachment_from_url: false,
     has_subtype_share: false,
-    has_rich_text_with_broadcast: false,
+    has_rich_text_quote: false,
+    has_rich_text_link_to_slack: false,
     has_root_or_nested_message: false,
   }
 
@@ -147,6 +149,31 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
   let originalAuthorId: string | undefined
   let originalChannelId: string | undefined
   let originalTs: string | undefined
+
+  // --- Helper to extract metadata from an attachment ---
+  function extractFromAttachment(att: SlackAttachment) {
+    if (att.text && !originalText) {
+      originalText = att.text
+    }
+    if (att.fallback && !originalText) {
+      originalText = att.fallback
+    }
+    if (att.author_name && !originalAuthorName) {
+      originalAuthorName = att.author_name
+    }
+    if (att.author_id && !originalAuthorId) {
+      originalAuthorId = att.author_id
+    }
+    if (att.channel_id && !originalChannelId) {
+      originalChannelId = att.channel_id
+    }
+    if (att.ts && !originalTs) {
+      originalTs = att.ts
+    }
+    if (att.from_url && isSlackMessageUrl(att.from_url) && !originalPermalink) {
+      originalPermalink = att.from_url
+    }
+  }
 
   // --- Cue 1: subtype indicates sharing ---
   // Slack may set subtype to "bot_message" or other values for shared content.
@@ -162,19 +189,19 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
   // --- Cue 2: Attachments with share indicators ---
   if (event.attachments && event.attachments.length > 0) {
     for (const att of event.attachments) {
-      // Explicit share flag
+      // Explicit share flag (desktop "Share message" dialog)
       if (att.is_share === true) {
         cues.has_attachment_share = true
         extractFromAttachment(att)
       }
 
-      // Message unfurl flag (Slack unfurls shared messages)
+      // Message unfurl flag (Slack unfurls shared/pasted messages)
       if (att.is_msg_unfurl === true) {
         cues.has_attachment_msg_unfurl = true
         extractFromAttachment(att)
       }
 
-      // from_url pointing to a Slack message (slack.com/archives/...)
+      // from_url or original_url pointing to a Slack message archive
       if (att.from_url && isSlackMessageUrl(att.from_url)) {
         cues.has_attachment_from_url = true
         if (!originalPermalink) {
@@ -182,8 +209,6 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
         }
         extractFromAttachment(att)
       }
-
-      // original_url pointing to a Slack message
       if (att.original_url && isSlackMessageUrl(att.original_url)) {
         cues.has_attachment_from_url = true
         if (!originalPermalink) {
@@ -194,18 +219,30 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
     }
   }
 
-  // --- Cue 3: Blocks containing rich_text with broadcast/share patterns ---
+  // --- Cue 3: Blocks containing rich_text with quote or Slack link ---
+  // Mobile forwards may arrive as rich_text_quote blocks without attachments.
+  // Pasted Slack links appear as rich_text_section with a link element.
   if (event.blocks && event.blocks.length > 0) {
     for (const block of event.blocks) {
       if (block.type === 'rich_text' && block.elements) {
         for (const section of block.elements) {
           if (section.type === 'rich_text_preformatted' || section.type === 'rich_text_quote') {
-            // Quoted content often indicates a forwarded message
-            cues.has_rich_text_with_broadcast = true
+            cues.has_rich_text_quote = true
             if (section.elements) {
               for (const el of section.elements) {
                 if (el.type === 'text' && el.text && !originalText) {
                   originalText = el.text
+                }
+              }
+            }
+          }
+          // Check for Slack links in rich_text_section (pasted permalink)
+          if (section.type === 'rich_text_section' && section.elements) {
+            for (const el of section.elements) {
+              if (el.type === 'link' && el.url && isSlackMessageUrl(el.url)) {
+                cues.has_rich_text_link_to_slack = true
+                if (!originalPermalink) {
+                  originalPermalink = el.url
                 }
               }
             }
@@ -242,13 +279,31 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
     }
   }
 
-  // Determine if forwarded based on cues
-  const isForwarded =
-    cues.has_attachment_share ||
-    cues.has_attachment_msg_unfurl ||
-    cues.has_attachment_from_url ||
-    (cues.has_subtype_share && (cues.has_attachment_from_url || cues.has_attachment_msg_unfurl || cues.has_attachment_share)) ||
-    cues.has_root_or_nested_message
+  // --- Determine if forwarded ---
+  // Strong signals: any ONE of these is sufficient
+  const hasStrongSignal =
+    cues.has_attachment_share ||      // Desktop "Share message" dialog
+    cues.has_attachment_msg_unfurl || // Slack unfurled a shared message
+    cues.has_root_or_nested_message  // Event contains a nested original message
+
+  // Medium signals: require a combination
+  //  - attachment_from_url alone could be a pasted URL preview, but combined
+  //    with a rich_text Slack link or a subtype it's a forward
+  //  - rich_text_quote alone could be a user-typed blockquote, but combined
+  //    with any other cue it's a forward
+  const hasMediumSignal =
+    (cues.has_attachment_from_url && cues.has_rich_text_link_to_slack) || // Pasted Slack permalink that got unfurled
+    (cues.has_rich_text_quote && cues.has_attachment_from_url) ||         // Quote + Slack URL attachment
+    (cues.has_rich_text_quote && cues.has_rich_text_link_to_slack) ||     // Quote + Slack link in blocks
+    (cues.has_subtype_share && (cues.has_attachment_from_url || cues.has_attachment_msg_unfurl || cues.has_attachment_share))
+
+  // In a bot DM, rich_text_quote with no other text content is very likely a forward
+  // (users rarely type blockquotes when DMing a bot). We treat it as forwarded
+  // per the spec: "if uncertain, prefer treating it as forwarded in bot DMs."
+  const isLikelyMobileForward =
+    cues.has_rich_text_quote && !hasPlainTextContent(event)
+
+  const isForwarded = hasStrongSignal || hasMediumSignal || isLikelyMobileForward
 
   return {
     isForwarded,
@@ -260,31 +315,30 @@ export function isForwardedToBot(event: SlackMessageEventExtended): ForwardedDet
     originalChannelId,
     originalTs,
   }
+}
 
-  // --- Helper to extract metadata from an attachment ---
-  function extractFromAttachment(att: SlackAttachment) {
-    if (att.text && !originalText) {
-      originalText = att.text
-    }
-    if (att.fallback && !originalText) {
-      originalText = att.fallback
-    }
-    if (att.author_name && !originalAuthorName) {
-      originalAuthorName = att.author_name
-    }
-    if (att.author_id && !originalAuthorId) {
-      originalAuthorId = att.author_id
-    }
-    if (att.channel_id && !originalChannelId) {
-      originalChannelId = att.channel_id
-    }
-    if (att.ts && !originalTs) {
-      originalTs = att.ts
-    }
-    if (att.from_url && isSlackMessageUrl(att.from_url) && !originalPermalink) {
-      originalPermalink = att.from_url
+/**
+ * Check if the event has plain (non-quote) text content typed by the user.
+ * Used to distinguish a mobile forward (only a quote block) from a user
+ * who typed a blockquote themselves (quote + their own text).
+ */
+function hasPlainTextContent(event: SlackMessageEventExtended): boolean {
+  if (!event.blocks || event.blocks.length === 0) return false
+  for (const block of event.blocks) {
+    if (block.type === 'rich_text' && block.elements) {
+      for (const section of block.elements) {
+        // rich_text_section with actual text content (not just a link)
+        if (section.type === 'rich_text_section' && section.elements) {
+          for (const el of section.elements) {
+            if (el.type === 'text' && el.text && el.text.trim().length > 0) {
+              return true
+            }
+          }
+        }
+      }
     }
   }
+  return false
 }
 
 /**

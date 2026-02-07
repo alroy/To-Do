@@ -609,6 +609,30 @@ export async function processSlackEvent(
           access_token,
           forwardDetection
         )
+      } else {
+        // Log non-forwarded bot DM for debugging missed forwards
+        const hasAttachments = !!(extendedEvent.attachments && extendedEvent.attachments.length > 0)
+        const hasBlocks = !!(extendedEvent.blocks && extendedEvent.blocks.length > 0)
+        if (hasAttachments || hasBlocks || event.subtype) {
+          console.log('[forwarded-dm] Bot DM not detected as forwarded:', JSON.stringify({
+            channel: event.channel,
+            subtype: event.subtype || null,
+            has_text: !!(event.text && event.text.trim()),
+            has_attachments: hasAttachments,
+            has_blocks: hasBlocks,
+            cues: forwardDetection.cues,
+            // Log attachment shapes for debugging
+            attachment_shapes: extendedEvent.attachments?.map(a => ({
+              is_share: a.is_share,
+              is_msg_unfurl: a.is_msg_unfurl,
+              has_from_url: !!a.from_url,
+              has_text: !!a.text,
+              has_fallback: !!a.fallback,
+            })),
+            // Log block types for debugging
+            block_types: extendedEvent.blocks?.map(b => b.type),
+          }))
+        }
       }
     }
     // --- End forwarded-DM branch ---

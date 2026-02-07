@@ -9,6 +9,7 @@ import {
   isForwardedToBot,
   extractForwardedText,
   extractForwardedOriginal,
+  detectGranolaMetadata,
   type SlackMessageEvent,
   type SlackEventCallback,
   type SlackUrlVerification,
@@ -810,6 +811,127 @@ describe('createDMFallback', () => {
     const result = createDMFallback('Some task text')
     expect(result.confidence).toBe(0)
     expect(result.why).toBe('llm_failed_fallback')
+  })
+})
+
+describe('detectGranolaMetadata', () => {
+  const baseEvent: SlackMessageEvent = {
+    type: 'message',
+    channel: 'D123',
+    channel_type: 'im',
+    user: 'U999',
+    text: 'Meeting notes from today',
+    ts: '1234567890.123456',
+  }
+
+  it('should detect knots.granola metadata with granola_url', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: {
+          granola_url: 'https://granola.app/meetings/abc123',
+          granola_author_name: 'Sam Campion',
+        },
+      },
+    }
+    const result = detectGranolaMetadata(event)
+    expect(result).not.toBeNull()
+    expect(result!.isGranola).toBe(true)
+    expect(result!.granolaUrl).toBe('https://granola.app/meetings/abc123')
+    expect(result!.authorName).toBe('Sam Campion')
+  })
+
+  it('should extract granola_author_id when provided', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: {
+          granola_url: 'https://granola.app/meetings/abc123',
+          granola_author_id: 'granola_user_42',
+        },
+      },
+    }
+    const result = detectGranolaMetadata(event)
+    expect(result).not.toBeNull()
+    expect(result!.authorId).toBe('granola_user_42')
+    expect(result!.authorName).toBeUndefined()
+  })
+
+  it('should return null when no metadata', () => {
+    expect(detectGranolaMetadata(baseEvent)).toBeNull()
+  })
+
+  it('should return null when event_type is not knots.granola', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'some.other.type',
+        event_payload: { granola_url: 'https://granola.app/x' },
+      },
+    }
+    expect(detectGranolaMetadata(event)).toBeNull()
+  })
+
+  it('should return null when granola_url is missing from payload', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: { some_other_field: 'value' },
+      },
+    }
+    expect(detectGranolaMetadata(event)).toBeNull()
+  })
+
+  it('should return null when event_payload is missing', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+      },
+    }
+    expect(detectGranolaMetadata(event)).toBeNull()
+  })
+
+  it('should return null when granola_url is empty string', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: { granola_url: '' },
+      },
+    }
+    expect(detectGranolaMetadata(event)).toBeNull()
+  })
+
+  it('should return null when granola_url is not a string', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: { granola_url: 123 },
+      },
+    }
+    expect(detectGranolaMetadata(event)).toBeNull()
+  })
+
+  it('should still create task for DM with Granola metadata via shouldCreateTask', () => {
+    const event: SlackMessageEvent = {
+      ...baseEvent,
+      bot_id: 'B_N8N',
+      metadata: {
+        event_type: 'knots.granola',
+        event_payload: {
+          granola_url: 'https://granola.app/meetings/abc123',
+        },
+      },
+    }
+    const result = shouldCreateTask(event, 'U12345')
+    expect(result.shouldCreate).toBe(true)
+    expect(result.isDM).toBe(true)
+    expect(result.reason).toBe('dm')
   })
 })
 

@@ -6,9 +6,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix"
-import { TaskMetadata, isSlackMetadata } from "@/lib/types"
+import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import { prepareDescriptionForEdit, detectSlackTask } from "@/lib/slack/text-utils"
-import { SlackProvenanceRow } from "@/components/ui/slack-badge"
+import { ProvenanceRow } from "@/components/ui/slack-badge"
 import type { ContentColumnRef } from "@/app/page"
 
 function KnotIcon({ className }: { className?: string }) {
@@ -86,36 +86,61 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
   const isEditMode = !!editTask
   const isOpen = isEditMode || isCreateOpen
 
-  // Determine Slack context for edit mode - from metadata (new) or legacy detection (old)
-  const slackContext = React.useMemo(() => {
+  // Determine provenance context for edit mode - Granola, Slack, metadata, or legacy
+  const provenance = React.useMemo(() => {
     if (!editTask) return null
 
-    // Priority 1: Direct source fields from EditTask (from DB columns)
+    // Priority 0: Granola provenance
+    if (editTask.sourceType === 'granola' && editTask.sourceUrl) {
+      const authorName = isGranolaMetadata(editTask.metadata)
+        ? editTask.metadata.source.author?.display_name
+        : undefined
+      return {
+        hasProvenance: true,
+        sourceType: 'granola' as const,
+        permalink: editTask.sourceUrl,
+        authorName,
+      }
+    }
+
+    // Priority 1: Direct Slack source fields from EditTask (from DB columns)
     if (editTask.sourceType === 'slack' && editTask.sourceUrl) {
       const authorName = isSlackMetadata(editTask.metadata)
         ? editTask.metadata.source.author?.display_name
         : undefined
       return {
-        isSlack: true,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: editTask.sourceUrl,
         authorName,
       }
     }
 
     // Priority 2: Check metadata (for tasks with metadata but no source columns)
+    if (isGranolaMetadata(editTask.metadata)) {
+      return {
+        hasProvenance: true,
+        sourceType: 'granola' as const,
+        permalink: editTask.metadata.source.granola_url,
+        authorName: editTask.metadata.source.author?.display_name,
+      }
+    }
+
     if (isSlackMetadata(editTask.metadata)) {
       return {
-        isSlack: true,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: editTask.metadata.source.permalink,
         authorName: editTask.metadata.source.author?.display_name,
       }
     }
 
-    // Priority 3: Fall back to legacy detection for old tasks
+    // Priority 3: Fall back to legacy detection for old Slack tasks
     const detected = detectSlackTask(editTask.description)
     if (detected.isSlack) {
       return {
-        isSlack: true,
+        hasProvenance: true,
+        sourceType: 'slack' as const,
         permalink: detected.permalink,
         authorName: detected.senderName,
       }
@@ -338,12 +363,13 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
               />
             </div>
 
-            {/* Read-only Slack provenance row for Slack-origin tasks */}
-            {isEditMode && slackContext?.isSlack && (
+            {/* Read-only provenance row for Slack/Granola-origin tasks */}
+            {isEditMode && provenance?.hasProvenance && (
               <div className="mb-6 pt-4 border-t border-border/40">
-                <SlackProvenanceRow
-                  authorName={slackContext.authorName}
-                  permalink={slackContext.permalink}
+                <ProvenanceRow
+                  sourceType={provenance.sourceType}
+                  authorName={provenance.authorName}
+                  permalink={provenance.permalink}
                 />
               </div>
             )}

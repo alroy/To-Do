@@ -38,6 +38,23 @@ export interface SlackTaskMetadata {
 }
 
 /**
+ * Slack message attachment (for shared/forwarded messages)
+ */
+export interface SlackAttachment {
+  fallback?: string
+  text?: string
+  pretext?: string
+  author_name?: string
+  author_id?: string
+  author_link?: string
+  from_url?: string
+  is_msg_unfurl?: boolean
+  channel_id?: string
+  channel_name?: string
+  ts?: string
+}
+
+/**
  * Slack event types we handle
  */
 export interface SlackMessageEvent {
@@ -50,6 +67,7 @@ export interface SlackMessageEvent {
   ts: string
   bot_id?: string
   team?: string
+  attachments?: SlackAttachment[]
 }
 
 export interface SlackEventCallback {
@@ -88,25 +106,81 @@ export function isEventCallback(event: SlackEvent): event is SlackEventCallback 
 }
 
 /**
+ * Check if a DM message is a forwarded/shared message to the bot.
+ *
+ * Forwarded messages in Slack arrive as regular messages with attachments
+ * containing the original message content. The event.text may be empty
+ * (no user comment) or contain only a Slack link.
+ */
+export function isForwardedToBot(event: SlackMessageEvent): boolean {
+  const isDM = event.channel_type === 'im' || event.channel.startsWith('D')
+  if (!isDM) return false
+
+  if (!event.attachments || event.attachments.length === 0) return false
+
+  return event.attachments.some(
+    (att) =>
+      att.is_msg_unfurl === true ||
+      (att.from_url != null && att.from_url.includes('.slack.com/archives/'))
+  )
+}
+
+/**
+ * Extract meaningful text from a forwarded/shared message.
+ *
+ * Combines the user's optional comment (event.text) with the
+ * forwarded message content from attachments.
+ */
+export function extractForwardedText(event: SlackMessageEvent): string {
+  const parts: string[] = []
+
+  // User's comment on the forwarded message
+  if (event.text && event.text.trim()) {
+    parts.push(event.text.trim())
+  }
+
+  // Forwarded message content from attachments
+  if (event.attachments) {
+    for (const att of event.attachments) {
+      if (att.is_msg_unfurl || att.from_url) {
+        const content = att.text || att.fallback
+        if (content && content.trim()) {
+          parts.push(content.trim())
+        }
+        break
+      }
+    }
+  }
+
+  return parts.join('\n\n') || 'Forwarded message'
+}
+
+/**
  * Check if this is a message we should create a task for
  */
 export function shouldCreateTask(
   event: SlackMessageEvent,
   slackUserId: string
-): { shouldCreate: boolean; reason: string; isDM: boolean; isMention: boolean } {
+): { shouldCreate: boolean; reason: string; isDM: boolean; isMention: boolean; isForwarded: boolean } {
   // Ignore bot messages
   if (event.bot_id) {
-    return { shouldCreate: false, reason: 'bot_message', isDM: false, isMention: false }
+    return { shouldCreate: false, reason: 'bot_message', isDM: false, isMention: false, isForwarded: false }
+  }
+
+  // Forwarded DMs bypass subtype and empty-text checks.
+  // Forwarding is explicit user intent — always create a task.
+  if (isForwardedToBot(event)) {
+    return { shouldCreate: true, reason: 'forwarded_dm', isDM: true, isMention: false, isForwarded: true }
   }
 
   // Ignore message subtypes (edits, deletes, joins, etc)
   if (event.subtype && event.subtype !== '') {
-    return { shouldCreate: false, reason: `subtype_${event.subtype}`, isDM: false, isMention: false }
+    return { shouldCreate: false, reason: `subtype_${event.subtype}`, isDM: false, isMention: false, isForwarded: false }
   }
 
   // Ignore empty messages
   if (!event.text || event.text.trim() === '') {
-    return { shouldCreate: false, reason: 'empty_text', isDM: false, isMention: false }
+    return { shouldCreate: false, reason: 'empty_text', isDM: false, isMention: false, isForwarded: false }
   }
 
   // Check if it's a DM
@@ -117,14 +191,14 @@ export function shouldCreateTask(
   const isMention = mentionPattern.test(event.text)
 
   if (isDM) {
-    return { shouldCreate: true, reason: 'dm', isDM: true, isMention: false }
+    return { shouldCreate: true, reason: 'dm', isDM: true, isMention: false, isForwarded: false }
   }
 
   if (isMention) {
-    return { shouldCreate: true, reason: 'mention', isDM: false, isMention: true }
+    return { shouldCreate: true, reason: 'mention', isDM: false, isMention: true, isForwarded: false }
   }
 
-  return { shouldCreate: false, reason: 'no_dm_or_mention', isDM: false, isMention: false }
+  return { shouldCreate: false, reason: 'no_dm_or_mention', isDM: false, isMention: false, isForwarded: false }
 }
 
 /**
@@ -414,6 +488,95 @@ export async function processSlackEvent(
 
     if (!check.shouldCreate) {
       continue
+    }
+
+    // Step 3.5: Forwarded DMs — create task unconditionally
+    if (check.isForwarded) {
+      const effectiveText = extractForwardedText(event)
+
+      // Resolve user mentions in the forwarded text
+      let fwdUserMap: SlackUserMap = {}
+      let fwdSenderDisplayName: string | undefined
+
+      if (access_token && effectiveText) {
+        try {
+          fwdUserMap = await resolveUserMentions(access_token, effectiveText)
+          if (event.user) {
+            if (fwdUserMap[event.user]) {
+              fwdSenderDisplayName = fwdUserMap[event.user]
+            } else {
+              const senderInfo = await fetchSlackUser(access_token, event.user)
+              if (senderInfo?.display_name) {
+                fwdSenderDisplayName = senderInfo.display_name
+                fwdUserMap[event.user] = fwdSenderDisplayName
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to resolve user mentions for forwarded DM:', error)
+        }
+      }
+
+      const fwdTitle = extractTaskTitle(effectiveText, fwdUserMap)
+      const fwdDescription = formatTaskDescription(effectiveText, fwdUserMap)
+
+      // Fetch permalink for the DM message
+      let fwdPermalink: string | undefined
+      if (access_token) {
+        const fetched = await ensurePermalink(access_token, event.channel, event.ts)
+        if (fetched) fwdPermalink = fetched
+      }
+
+      // Use the original message's permalink from the attachment for source_url
+      const originalPermalink = event.attachments?.find((a) => a.from_url)?.from_url
+      const sourceUrl = originalPermalink || fwdPermalink || ''
+
+      // Deduplicate on the original forwarded message (not the DM ts).
+      // If the same message is forwarded twice, from_url will match.
+      const sourceId = originalPermalink
+        ? `fwd:${originalPermalink}`
+        : `${team_id}:${event.channel}:${event.ts}`
+
+      const fwdMetadata = buildSlackMetadata(
+        { ...event, text: effectiveText },
+        team_id,
+        'dm',
+        event.user,
+        fwdSenderDisplayName,
+        fwdPermalink || originalPermalink,
+        fwdUserMap
+      )
+
+      const { data: fwdTask, error: fwdError } = await supabase
+        .from('tasks')
+        .insert({
+          title: fwdTitle,
+          description: fwdDescription,
+          status: 'active',
+          user_id,
+          position: 0,
+          source_type: 'slack',
+          source_id: sourceId,
+          source_url: sourceUrl,
+          ingest_trigger: 'dm',
+          metadata: fwdMetadata,
+        })
+        .select('id')
+        .single()
+
+      // Unique constraint violation → deduplicated
+      if (fwdError?.code === '23505') {
+        await updateIngestStatus(supabase, team_id, event_id, 'ignored', undefined, 'deduped')
+        return { status: 'ignored', reason: 'deduped' }
+      }
+
+      if (fwdError) {
+        await updateIngestStatus(supabase, team_id, event_id, 'failed', undefined, fwdError.message)
+        return { status: 'failed', error: fwdError.message }
+      }
+
+      await updateIngestStatus(supabase, team_id, event_id, 'processed', fwdTask.id)
+      return { status: 'processed', taskId: fwdTask.id }
     }
 
     // Step 4: For mentions, use the heuristic + LLM pipeline

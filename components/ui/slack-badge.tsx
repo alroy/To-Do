@@ -25,15 +25,15 @@ function SlackIcon({ className }: { className?: string }) {
 /**
  * Shared Slack provenance row for task cards and edit modal.
  *
- * Renders: [Slack icon] {name} via Slack · View in Slack
+ * Renders: [Slack icon] {name} · View in Slack
  */
 export function SlackProvenanceRow({ authorName, permalink, className }: SlackProvenanceRowProps) {
-  const displayName = authorName || 'Unknown'
+  const displayName = authorName || 'Slack'
 
   return (
     <div className={`flex items-center gap-1.5 text-xs text-muted-foreground/70 ${className || ''}`}>
       <SlackIcon className="h-3 w-3 shrink-0" />
-      <span>{displayName} via Slack</span>
+      <span>{displayName}</span>
       {permalink && (
         <>
           <span className="text-muted-foreground/40">·</span>

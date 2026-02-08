@@ -264,6 +264,21 @@ export function detectGranolaMetadata(event: SlackMessageEvent): GranolaContext 
 }
 
 /**
+ * Detect if a DM is a Granola notification posted by n8n.
+ *
+ * These messages look like:
+ *   "Granola tasks\n• Send email to Noah\n\nTranscript: https://notes.granola.ai/..."
+ *
+ * They should be SKIPPED because the real tasks arrive via /api/ingest/granola.
+ * Creating a task from this text produces garbage (e.g. "Follow up on clarification needed").
+ */
+export function isGranolaNotification(text: string): boolean {
+  if (!text) return false
+  // Must start with "Granola" (case-insensitive) and contain a notes.granola.ai URL
+  return /^granola\b/i.test(text.trim()) && /notes\.granola\.ai\//i.test(text)
+}
+
+/**
  * Check if this is a message we should create a task for
  */
 export function shouldCreateTask(
@@ -749,6 +764,12 @@ export async function processSlackEvent(
     // Step 3.7: Non-forwarded DMs — always create task with LLM shaping
     if (check.isDM && !check.isForwarded) {
       const messageText = event.text?.trim() || ''
+
+      // Skip Granola notification DMs — real tasks come via /api/ingest/granola
+      if (isGranolaNotification(messageText)) {
+        await updateIngestStatus(supabase, team_id, event_id, 'ignored', undefined, 'granola_notification')
+        return { status: 'ignored', reason: 'granola_notification' }
+      }
 
       // Detect Granola provenance from Slack message metadata
       const granolaCtx = detectGranolaMetadata(event)

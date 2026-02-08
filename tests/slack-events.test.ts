@@ -10,6 +10,7 @@ import {
   extractForwardedText,
   extractForwardedOriginal,
   detectGranolaMetadata,
+  isGranolaNotification,
   type SlackMessageEvent,
   type SlackEventCallback,
   type SlackUrlVerification,
@@ -980,5 +981,42 @@ describe('isEventCallback', () => {
       challenge: 'challenge123',
     }
     expect(isEventCallback(event)).toBe(false)
+  })
+})
+
+describe('isGranolaNotification', () => {
+  it('should detect typical Granola notification with bullet list', () => {
+    const text = 'Granola tasks\n• Send email to Noah\n• Follow up with team\n\nTranscript: https://notes.granola.ai/d/abc123'
+    expect(isGranolaNotification(text)).toBe(true)
+  })
+
+  it('should detect Granola notification with single task', () => {
+    const text = 'Granola tasks\n• Draft proposal\n\nhttps://notes.granola.ai/d/xyz789'
+    expect(isGranolaNotification(text)).toBe(true)
+  })
+
+  it('should detect Granola notification case-insensitively', () => {
+    const text = 'GRANOLA tasks\n• Something\n\nTranscript: https://notes.granola.ai/d/foo'
+    expect(isGranolaNotification(text)).toBe(true)
+  })
+
+  it('should NOT detect regular DM text', () => {
+    expect(isGranolaNotification('Please review this PR')).toBe(false)
+  })
+
+  it('should NOT detect text with just "Granola" but no URL', () => {
+    expect(isGranolaNotification('Granola tasks\n• Something')).toBe(false)
+  })
+
+  it('should NOT detect text with just granola URL but not starting with Granola', () => {
+    expect(isGranolaNotification('Check this: https://notes.granola.ai/d/abc')).toBe(false)
+  })
+
+  it('should NOT detect empty text', () => {
+    expect(isGranolaNotification('')).toBe(false)
+  })
+
+  it('should NOT detect undefined-ish text', () => {
+    expect(isGranolaNotification(undefined as unknown as string)).toBe(false)
   })
 })

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Pencil, Check, FileText, LogOut } from "lucide-react"
 import { SlackSettings } from "@/components/settings/slack-settings"
+import { MondaySettings } from "@/components/settings/monday-settings"
 import type { UserProfile } from "@/lib/chief-of-staff-types"
 
 export function ProfileTab() {
@@ -165,7 +166,11 @@ export function ProfileTab() {
 
       {/* Settings */}
       <div className="mt-10 pt-6 border-t border-border">
-        <SlackSettings />
+        <h3 className="text-sm font-medium text-foreground mb-3">Integrations</h3>
+        <div className="flex flex-col gap-2">
+          <SlackSettings />
+          <MondaySettings />
+        </div>
         <Button
           onClick={signOut}
           className="mt-4 w-full bg-accent text-foreground hover:bg-accent-hover"

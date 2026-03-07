@@ -61,16 +61,20 @@ export default function Page() {
         )}
 
         {/* Tab content */}
-        <div
-          id={`tab-panel-${activeTab}`}
-          role="tabpanel"
-          aria-labelledby={`tab-${activeTab}`}
-        >
-          {activeTab === 'tasks' && <TasksTab contentColumnRef={contentColumnRef} />}
-          {activeTab === 'goals' && <GoalsTab contentColumnRef={contentColumnRef} />}
-          {activeTab === 'people' && <PeopleTab contentColumnRef={contentColumnRef} />}
-          {activeTab === 'backlog' && <BacklogTab contentColumnRef={contentColumnRef} />}
-          {activeTab === 'profile' && <ProfileTab />}
+        <div id="tab-panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className={activeTab !== 'tasks' ? 'hidden' : undefined}>
+          <TasksTab contentColumnRef={contentColumnRef} />
+        </div>
+        <div id="tab-panel-goals" role="tabpanel" aria-labelledby="tab-goals" className={activeTab !== 'goals' ? 'hidden' : undefined}>
+          <GoalsTab contentColumnRef={contentColumnRef} />
+        </div>
+        <div id="tab-panel-people" role="tabpanel" aria-labelledby="tab-people" className={activeTab !== 'people' ? 'hidden' : undefined}>
+          <PeopleTab contentColumnRef={contentColumnRef} />
+        </div>
+        <div id="tab-panel-backlog" role="tabpanel" aria-labelledby="tab-backlog" className={activeTab !== 'backlog' ? 'hidden' : undefined}>
+          <BacklogTab contentColumnRef={contentColumnRef} />
+        </div>
+        <div id="tab-panel-profile" role="tabpanel" aria-labelledby="tab-profile" className={activeTab !== 'profile' ? 'hidden' : undefined}>
+          <ProfileTab />
         </div>
       </div>
 

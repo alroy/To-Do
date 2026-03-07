@@ -11,7 +11,7 @@ export interface MorningBriefContent {
   generatedAt: string
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
@@ -25,20 +25,24 @@ export async function GET() {
     }
 
     const today = new Date().toISOString().split('T')[0]
+    const { searchParams } = new URL(request.url)
+    const forceRefresh = searchParams.get('refresh') === '1'
 
-    // Check for cached brief (less than 4 hours old)
-    const { data: cached } = await supabase
-      .from('morning_brief')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('brief_date', today)
-      .single()
+    // Check for cached brief (less than 4 hours old) — skip if force refresh
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from('morning_brief')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('brief_date', today)
+        .single()
 
-    if (cached) {
-      const cacheAge = Date.now() - new Date(cached.created_at).getTime()
-      const fourHours = 4 * 60 * 60 * 1000
-      if (cacheAge < fourHours) {
-        return NextResponse.json({ brief: cached.content, cached: true })
+      if (cached) {
+        const cacheAge = Date.now() - new Date(cached.created_at).getTime()
+        const fourHours = 4 * 60 * 60 * 1000
+        if (cacheAge < fourHours) {
+          return NextResponse.json({ brief: cached.content, cached: true })
+        }
       }
     }
 

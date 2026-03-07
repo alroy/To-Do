@@ -361,8 +361,9 @@ function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumn
 
   return (
     <div
-      className="fixed bottom-20 z-30"
+      className="fixed z-30"
       style={{
+        bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
         right: fabPosition?.right ?? 24,
         transform: "translateZ(0)",
         WebkitBackfaceVisibility: "hidden",

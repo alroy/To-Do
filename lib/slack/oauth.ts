@@ -44,7 +44,9 @@ export const SLACK_BOT_SCOPES = [
  * Slack user scopes (for identifying the installing user)
  */
 export const SLACK_USER_SCOPES = [
-  'identify', // Get user identity
+  'identify',    // Get user identity
+  'im:history',  // Read DM message history (for polling)
+  'im:read',     // List DM channels (for polling)
 ].join(',')
 
 /**

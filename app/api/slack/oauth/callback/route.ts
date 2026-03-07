@@ -94,6 +94,8 @@ export async function GET(request: NextRequest) {
         bot_user_id: tokenResponse.bot_user_id,
         slack_user_id: tokenResponse.authed_user?.id,
         team_name: tokenResponse.team?.name,
+        user_access_token: tokenResponse.authed_user?.access_token || null,
+        user_scope: tokenResponse.authed_user?.scope || null,
         revoked_at: null, // Clear revocation if re-connecting
       })
       .eq('id', existing.id)
@@ -115,6 +117,8 @@ export async function GET(request: NextRequest) {
         scope: tokenResponse.scope,
         bot_user_id: tokenResponse.bot_user_id,
         slack_user_id: tokenResponse.authed_user?.id || '',
+        user_access_token: tokenResponse.authed_user?.access_token || null,
+        user_scope: tokenResponse.authed_user?.scope || null,
       })
 
     if (insertError) {

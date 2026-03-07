@@ -103,3 +103,128 @@ export async function resolveUserMentions(
   await Promise.all(fetchPromises)
   return userMap
 }
+
+/**
+ * DM channel info from conversations.list
+ */
+export interface SlackDMChannel {
+  id: string
+  user: string // The other person's user ID
+}
+
+/**
+ * Message from conversations.history
+ */
+export interface SlackHistoryMessage {
+  type: string
+  subtype?: string
+  user?: string
+  text?: string
+  ts: string
+  bot_id?: string
+}
+
+/**
+ * List user's DM channels using their user token
+ * Returns all IM (1:1 DM) channels
+ */
+export async function listUserDMChannels(
+  userToken: string
+): Promise<SlackDMChannel[]> {
+  const channels: SlackDMChannel[] = []
+  let cursor: string | undefined
+
+  try {
+    do {
+      const params = new URLSearchParams({
+        types: 'im',
+        limit: '200',
+        exclude_archived: 'true',
+      })
+      if (cursor) params.set('cursor', cursor)
+
+      const response = await fetch(
+        `https://slack.com/api/conversations.list?${params}`,
+        { headers: { Authorization: `Bearer ${userToken}` } }
+      )
+      const data = await response.json()
+
+      if (!data.ok) {
+        console.error('Failed to list DM channels:', data.error)
+        break
+      }
+
+      for (const ch of data.channels || []) {
+        if (ch.id && ch.user) {
+          channels.push({ id: ch.id, user: ch.user })
+        }
+      }
+
+      cursor = data.response_metadata?.next_cursor || undefined
+    } while (cursor)
+  } catch (error) {
+    console.error('Error listing DM channels:', error)
+  }
+
+  return channels
+}
+
+/**
+ * Fetch recent messages from a DM channel using user token
+ * @param oldest - Unix timestamp string; only messages after this time
+ * @param limit - Max messages to fetch (default 50)
+ */
+export async function fetchDMHistory(
+  userToken: string,
+  channelId: string,
+  oldest?: string,
+  limit = 50
+): Promise<SlackHistoryMessage[]> {
+  try {
+    const params = new URLSearchParams({
+      channel: channelId,
+      limit: String(limit),
+    })
+    if (oldest) params.set('oldest', oldest)
+
+    const response = await fetch(
+      `https://slack.com/api/conversations.history?${params}`,
+      { headers: { Authorization: `Bearer ${userToken}` } }
+    )
+    const data = await response.json()
+
+    if (!data.ok) {
+      console.error(`Failed to fetch DM history for ${channelId}:`, data.error)
+      return []
+    }
+
+    return data.messages || []
+  } catch (error) {
+    console.error(`Error fetching DM history for ${channelId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Fetch permalink for a Slack message using bot token
+ */
+export async function fetchPermalink(
+  botToken: string,
+  channelId: string,
+  messageTs: string
+): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({
+      channel: channelId,
+      message_ts: messageTs,
+    })
+    const response = await fetch(
+      `https://slack.com/api/chat.getPermalink?${params}`,
+      { headers: { Authorization: `Bearer ${botToken}` } }
+    )
+    const data = await response.json()
+    return data.ok ? data.permalink : null
+  } catch {
+    return null
+  }
+}

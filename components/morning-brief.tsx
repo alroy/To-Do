@@ -76,10 +76,12 @@ export function MorningBrief({ onApplyOrder, revision = 0 }: MorningBriefProps) 
   // Don't render anything while loading or if no brief (e.g., no API key)
   if (loading) {
     return (
-      <div className="rounded-lg bg-accent/50 p-4 mb-6 animate-pulse">
+      <div className="rounded-lg bg-accent/50 p-4 mb-6">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary/50" />
-          <div className="h-4 w-48 bg-accent rounded" />
+          <Sparkles className="h-4 w-4 text-primary animate-spin" />
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Generating an updated brief...
+          </p>
         </div>
       </div>
     )

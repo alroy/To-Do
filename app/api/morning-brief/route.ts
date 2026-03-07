@@ -11,7 +11,16 @@ export interface MorningBriefContent {
   generatedAt: string
 }
 
-export async function GET() {
+function getTimeOfDayPeriod(date: Date): string {
+  const hour = parseInt(
+    date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Jerusalem' })
+  )
+  if (hour < 12) return 'morning'
+  if (hour < 17) return 'afternoon'
+  return 'evening'
+}
+
+export async function GET(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
@@ -24,21 +33,31 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const currentTime = now.toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Jerusalem',
+    })
+    const { searchParams } = new URL(request.url)
+    const forceRefresh = searchParams.get('refresh') === '1'
 
-    // Check for cached brief (less than 4 hours old)
-    const { data: cached } = await supabase
-      .from('morning_brief')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('brief_date', today)
-      .single()
+    // Check for cached brief (less than 4 hours old) — skip if force refresh
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from('morning_brief')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('brief_date', today)
+        .single()
 
-    if (cached) {
-      const cacheAge = Date.now() - new Date(cached.created_at).getTime()
-      const fourHours = 4 * 60 * 60 * 1000
-      if (cacheAge < fourHours) {
-        return NextResponse.json({ brief: cached.content, cached: true })
+      if (cached) {
+        const cacheAge = Date.now() - new Date(cached.created_at).getTime()
+        const fourHours = 4 * 60 * 60 * 1000
+        const cachedPeriod = getTimeOfDayPeriod(new Date(cached.created_at))
+        const currentPeriod = getTimeOfDayPeriod(now)
+        if (cacheAge < fourHours && cachedPeriod === currentPeriod) {
+          return NextResponse.json({ brief: cached.content, cached: true })
+        }
       }
     }
 
@@ -107,13 +126,13 @@ export async function GET() {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1500,
-      system: `You are an AI Chief of Staff. Generate a concise morning brief to help the user prioritize their day.
+      system: `You are an AI Chief of Staff. Generate a concise brief to help the user prioritize their day.
 
 You MUST respond with valid JSON only. No markdown, no explanation.
 
 JSON Schema:
 {
-  "greeting": "string - one personal line, reference something specific from their context",
+  "greeting": "string - one personal line; greet appropriately for the time of day (morning/afternoon/evening), reference something specific from their context",
   "focusAreas": ["string - top 3 things to focus on today, actionable and specific"],
   "prioritizedTaskIds": ["string - task IDs in recommended priority order for today (max 10)"],
   "risks": ["string - blockers, overdue items, or things that need immediate attention"],
@@ -129,7 +148,7 @@ Rules:
 - Return ALL task IDs you reference in prioritizedTaskIds, in recommended order`,
       messages: [{
         role: 'user',
-        content: `Generate my morning brief for today (${today}).
+        content: `Generate my brief. Current date: ${today}, current time: ${currentTime}.
 
 ## Profile
 ${profileText}
@@ -160,7 +179,7 @@ JSON only.`,
 
       const parsed = JSON.parse(jsonStr)
       briefContent = {
-        greeting: parsed.greeting || 'Good morning.',
+        greeting: parsed.greeting || 'Hello.',
         focusAreas: Array.isArray(parsed.focusAreas) ? parsed.focusAreas : [],
         prioritizedTaskIds: Array.isArray(parsed.prioritizedTaskIds) ? parsed.prioritizedTaskIds : [],
         risks: Array.isArray(parsed.risks) ? parsed.risks : [],
@@ -169,7 +188,7 @@ JSON only.`,
       }
     } catch {
       briefContent = {
-        greeting: 'Good morning.',
+        greeting: 'Hello.',
         focusAreas: ['Review your active tasks and prioritize based on goals.'],
         prioritizedTaskIds: tasks.slice(0, 10).map((t: any) => t.id),
         risks: [],

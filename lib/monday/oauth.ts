@@ -1,57 +1,39 @@
 import crypto from 'crypto'
 
 /**
- * Slack OAuth configuration
+ * Monday.com OAuth configuration
  */
-export interface SlackOAuthConfig {
+export interface MondayOAuthConfig {
   clientId: string
   clientSecret: string
   redirectUri: string
+  signingSecret: string
 }
 
 /**
  * Get OAuth config from environment
  */
-export function getSlackOAuthConfig(): SlackOAuthConfig | null {
-  const clientId = process.env.SLACK_CLIENT_ID
-  const clientSecret = process.env.SLACK_CLIENT_SECRET
+export function getMondayOAuthConfig(): MondayOAuthConfig | null {
+  const clientId = process.env.MONDAY_CLIENT_ID
+  const clientSecret = process.env.MONDAY_CLIENT_SECRET
+  const signingSecret = process.env.MONDAY_SIGNING_SECRET
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
 
-  if (!clientId || !clientSecret || !siteUrl) {
+  if (!clientId || !clientSecret || !signingSecret || !siteUrl) {
     return null
   }
 
   return {
     clientId,
     clientSecret,
-    redirectUri: `${siteUrl}/api/slack/oauth/callback`,
+    redirectUri: `${siteUrl}/api/monday/oauth/callback`,
+    signingSecret,
   }
 }
 
 /**
- * Slack bot scopes required for the integration
- */
-export const SLACK_BOT_SCOPES = [
-  'im:history',      // Read DM messages
-  'im:read',         // Access DM channel metadata
-  'channels:history', // Read public channel messages (for mentions)
-  'groups:history',   // Read private channel messages (for mentions)
-  'mpim:history',     // Read group DM messages (for mentions)
-  'users:read',       // Resolve user display names
-].join(',')
-
-/**
- * Slack user scopes (for identifying the installing user)
- */
-export const SLACK_USER_SCOPES = [
-  'identify',    // Get user identity
-  'im:history',  // Read DM message history (for polling)
-  'im:read',     // List DM channels (for polling)
-].join(',')
-
-/**
  * Generate OAuth state parameter with HMAC signature
- * State format: userId:nonce:signature
+ * Reuses same pattern as Slack OAuth
  */
 export function generateOAuthState(userId: string, secret: string): string {
   const nonce = crypto.randomBytes(16).toString('hex')
@@ -60,7 +42,7 @@ export function generateOAuthState(userId: string, secret: string): string {
     .createHmac('sha256', secret)
     .update(data)
     .digest('hex')
-    .substring(0, 16) // Truncate for shorter URL
+    .substring(0, 16)
 
   return `${data}:${signature}`
 }
@@ -85,7 +67,6 @@ export function verifyOAuthState(
     .digest('hex')
     .substring(0, 16)
 
-  // Constant-time comparison
   try {
     const isValid = crypto.timingSafeEqual(
       Buffer.from(signature, 'utf8'),
@@ -98,48 +79,33 @@ export function verifyOAuthState(
 }
 
 /**
- * Build Slack OAuth authorization URL
+ * Build Monday.com OAuth authorization URL
  */
-export function buildAuthUrl(config: SlackOAuthConfig, state: string): string {
+export function buildAuthUrl(config: MondayOAuthConfig, state: string): string {
   const params = new URLSearchParams({
     client_id: config.clientId,
-    scope: SLACK_BOT_SCOPES,
-    user_scope: SLACK_USER_SCOPES,
     redirect_uri: config.redirectUri,
     state,
   })
 
-  return `https://slack.com/oauth/v2/authorize?${params.toString()}`
+  return `https://auth.monday.com/oauth2/authorize?${params.toString()}`
 }
 
 /**
  * Exchange OAuth code for access token
  */
-export interface SlackOAuthResponse {
-  ok: boolean
-  error?: string
+export interface MondayOAuthResponse {
   access_token?: string
   token_type?: string
   scope?: string
-  bot_user_id?: string
-  app_id?: string
-  team?: {
-    id: string
-    name: string
-  }
-  authed_user?: {
-    id: string
-    scope?: string
-    access_token?: string
-    token_type?: string
-  }
+  error?: string
 }
 
 export async function exchangeCodeForToken(
-  config: SlackOAuthConfig,
+  config: MondayOAuthConfig,
   code: string
-): Promise<SlackOAuthResponse> {
-  const response = await fetch('https://slack.com/api/oauth.v2.access', {
+): Promise<MondayOAuthResponse> {
+  const response = await fetch('https://auth.monday.com/oauth2/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -153,4 +119,28 @@ export async function exchangeCodeForToken(
   })
 
   return response.json()
+}
+
+/**
+ * Verify Monday.com webhook signature
+ * Monday signs webhooks with the app's signing secret
+ */
+export function verifyWebhookSignature(
+  body: string,
+  signature: string,
+  signingSecret: string
+): boolean {
+  const hmac = crypto
+    .createHmac('sha256', signingSecret)
+    .update(body)
+    .digest('base64')
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'utf8'),
+      Buffer.from(hmac, 'utf8')
+    )
+  } catch {
+    return false
+  }
 }

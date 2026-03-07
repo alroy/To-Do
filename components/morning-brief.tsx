@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { Sparkles, ChevronDown, ChevronUp, RefreshCw, ArrowUpDown, AlertTriangle, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -16,18 +16,33 @@ export interface MorningBriefContent {
 
 interface MorningBriefProps {
   onApplyOrder: (taskIds: string[]) => void
+  /** Increment to trigger a debounced refresh (e.g., after task delete/toggle/goal change) */
+  revision?: number
 }
 
-export function MorningBrief({ onApplyOrder }: MorningBriefProps) {
+export function MorningBrief({ onApplyOrder, revision = 0 }: MorningBriefProps) {
   const [brief, setBrief] = useState<MorningBriefContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetchBrief()
   }, [])
+
+  // Auto-refresh when revision changes (debounced 5s)
+  useEffect(() => {
+    if (revision === 0) return // skip initial
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      fetchBrief(true)
+    }, 5000)
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
+  }, [revision])
 
   const fetchBrief = async (forceRefresh = false) => {
     try {
@@ -61,10 +76,12 @@ export function MorningBrief({ onApplyOrder }: MorningBriefProps) {
   // Don't render anything while loading or if no brief (e.g., no API key)
   if (loading) {
     return (
-      <div className="rounded-lg bg-accent/50 p-4 mb-6 animate-pulse">
+      <div className="rounded-lg bg-accent/50 p-4 mb-6">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary/50" />
-          <div className="h-4 w-48 bg-accent rounded" />
+          <Sparkles className="h-4 w-4 text-primary animate-spin" />
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Generating an updated brief...
+          </p>
         </div>
       </div>
     )

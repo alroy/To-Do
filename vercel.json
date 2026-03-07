@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/poll-slack-dms",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

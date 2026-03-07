@@ -24,7 +24,7 @@ export interface SlackIngestMessage {
   text: string
   permalink: string // Must exist by the time we score/call LLM
   mentioned_user_ids: string[] // Include the current user id
-  trigger: 'mention' // Constant in this phase
+  trigger: 'mention' | 'dm_poll' // Source of ingestion
   ingested_at: string // ISO timestamp
   // Optional MVP+ fields
   thread_parent_text?: string // Fetch parent message if thread_ts exists
@@ -121,13 +121,13 @@ export interface TaskFromSourceInput {
   user_id: string
   title: string
   description: string
-  source_type: 'slack'
-  source_id: string // team_id:channel_id:message_ts
-  source_url: string // Slack permalink
+  source_type: 'slack' | 'monday'
+  source_id: string // team_id:channel_id:message_ts or account_id:board_id:item_id
+  source_url: string // Slack permalink or Monday item URL
   raw_source_text?: string // Controlled by env flag
   llm_confidence?: number
   llm_why?: string
-  ingest_trigger: 'mention'
+  ingest_trigger: 'mention' | 'dm' | 'dm_poll' | 'assignment'
   goal_id?: string // FK to goals table for task-to-goal linking
 }
 

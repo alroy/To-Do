@@ -1,6 +1,6 @@
 "use client"
 
-type SourceType = 'slack' | 'granola'
+type SourceType = 'slack' | 'granola' | 'monday'
 
 interface ProvenanceRowProps {
   sourceType?: SourceType
@@ -41,9 +41,28 @@ function GranolaIcon({ className }: { className?: string }) {
   )
 }
 
+/**
+ * Monday.com icon component
+ */
+function MondayIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="1.5" y="5" width="5.5" height="16" rx="2.75" transform="rotate(-30 4.25 13)" />
+      <rect x="9" y="5" width="5.5" height="16" rx="2.75" transform="rotate(-30 11.75 13)" />
+      <circle cx="20" cy="18.5" r="2.75" />
+    </svg>
+  )
+}
+
 const SOURCE_CONFIG: Record<SourceType, { fallbackName: string; linkText: string; Icon: typeof SlackIcon }> = {
   slack: { fallbackName: 'Slack', linkText: 'View in Slack', Icon: SlackIcon },
   granola: { fallbackName: 'Granola', linkText: 'View in Granola', Icon: GranolaIcon },
+  monday: { fallbackName: 'Monday.com', linkText: 'View in Monday', Icon: MondayIcon },
 }
 
 /**

@@ -23,10 +23,14 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editGoal, setEditGoal] = useState<Goal | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({})
   const supabase = createClient()
 
   useEffect(() => {
-    if (user) loadGoals()
+    if (user) {
+      loadGoals()
+      loadTaskCounts()
+    }
   }, [user])
 
   // Real-time subscription
@@ -40,6 +44,26 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [user])
+
+  const loadTaskCounts = async () => {
+    if (!user) return
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('goal_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .not('goal_id', 'is', null)
+      if (error) throw error
+      const counts: Record<string, number> = {}
+      for (const t of data || []) {
+        if (t.goal_id) counts[t.goal_id] = (counts[t.goal_id] || 0) + 1
+      }
+      setTaskCounts(counts)
+    } catch (error) {
+      console.error('Error loading task counts:', error)
+    }
+  }
 
   const loadGoals = async () => {
     if (!user) return
@@ -170,6 +194,7 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
             <GoalCard
               key={goal.id}
               goal={goal}
+              taskCount={taskCounts[goal.id] || 0}
               isExpanded={expandedId === goal.id}
               onToggleExpand={() => setExpandedId(expandedId === goal.id ? null : goal.id)}
               onEdit={() => { setEditGoal(goal); setIsFormOpen(true) }}
@@ -210,8 +235,9 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
 // --- Goal Card ---
 
-function GoalCard({ goal, isExpanded, onToggleExpand, onEdit, onDelete, onStatusToggle, onMarkAtRisk }: {
+function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelete, onStatusToggle, onMarkAtRisk }: {
   goal: Goal
+  taskCount: number
   isExpanded: boolean
   onToggleExpand: () => void
   onEdit: () => void
@@ -253,6 +279,7 @@ function GoalCard({ goal, isExpanded, onToggleExpand, onEdit, onDelete, onStatus
           </div>
           <span className="text-xs text-muted-foreground">
             {goal.deadline ? `Due ${goal.deadline}` : formatRelativeTime(goal.createdAt)}
+            {taskCount > 0 && <> · {taskCount} linked {taskCount === 1 ? 'task' : 'tasks'}</>}
           </span>
           {goal.description && !isExpanded && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{goal.description}</p>

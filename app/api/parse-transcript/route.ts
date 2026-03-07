@@ -59,6 +59,44 @@ Rules:
 - For ai_instructions, synthesize their preferences into direct instructions (e.g., "Be direct. Don't validate ideas to please me...")
 - Return ONLY valid JSON, no markdown code blocks or other formatting`
 
+/**
+ * Find best match for an item in existing items by comparing lowercase titles/names.
+ * Returns the matched existing item or null.
+ */
+function findMatch<T extends { id: string }>(
+  parsedValue: string,
+  existingItems: T[],
+  getField: (item: T) => string
+): T | null {
+  if (!parsedValue) return null
+  const normalizedParsed = parsedValue.toLowerCase().trim()
+
+  // Exact match first
+  const exact = existingItems.find(item => getField(item).toLowerCase().trim() === normalizedParsed)
+  if (exact) return exact
+
+  // Substring match (either direction) for close matches
+  const substringMatch = existingItems.find(item => {
+    const existing = getField(item).toLowerCase().trim()
+    return existing.includes(normalizedParsed) || normalizedParsed.includes(existing)
+  })
+  return substringMatch || null
+}
+
+/**
+ * Merge parsed fields into existing record, only overwriting with non-empty values.
+ */
+function mergeFields(existing: Record<string, any>, parsed: Record<string, any>, fields: string[]): Record<string, any> {
+  const updates: Record<string, any> = {}
+  for (const field of fields) {
+    const newVal = parsed[field]
+    if (newVal && newVal !== '') {
+      updates[field] = newVal
+    }
+  }
+  return updates
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { transcript } = await request.json()
@@ -102,10 +140,8 @@ export async function POST(request: NextRequest) {
     // Parse JSON from response (handle potential markdown code blocks)
     let parsed: any
     try {
-      // Try direct parse first
       parsed = JSON.parse(responseText)
     } catch {
-      // Try extracting from markdown code block
       const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[1])
@@ -114,7 +150,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert profile data
+    // Fetch existing data for dedup matching
+    const [existingGoals, existingPeople, existingBacklog] = await Promise.all([
+      supabase.from('goals').select('*').eq('user_id', user.id),
+      supabase.from('people').select('*').eq('user_id', user.id),
+      supabase.from('backlog').select('*').eq('user_id', user.id),
+    ])
+
+    // Upsert profile (already deduped via unique constraint)
     if (parsed.profile) {
       const { error: profileError } = await supabase
         .from('user_profile')
@@ -133,70 +176,131 @@ export async function POST(request: NextRequest) {
       if (profileError) console.error('Error upserting profile:', profileError)
     }
 
-    // Insert goals
-    let goalsCount = 0
+    // Dedup goals: match by title, update existing or insert new
+    let goalsCreated = 0, goalsUpdated = 0
     if (parsed.goals?.length > 0) {
-      const goalsToInsert = parsed.goals.map((g: any, i: number) => ({
-        user_id: user.id,
-        title: g.title || '',
-        description: g.description || '',
-        priority: g.priority || 2,
-        metrics: g.metrics || '',
-        deadline: g.deadline || null,
-        risks: g.risks || '',
-        position: i,
-      }))
+      const existing = existingGoals.data || []
+      for (const g of parsed.goals) {
+        const match = findMatch(g.title, existing, (item: any) => item.title)
+        if (match) {
+          const updates = mergeFields(match, {
+            description: g.description || '',
+            priority: g.priority || undefined,
+            metrics: g.metrics || '',
+            deadline: g.deadline || undefined,
+            risks: g.risks || '',
+          }, ['description', 'priority', 'metrics', 'deadline', 'risks'])
 
-      const { error: goalsError } = await supabase.from('goals').insert(goalsToInsert)
-      if (goalsError) console.error('Error inserting goals:', goalsError)
-      else goalsCount = goalsToInsert.length
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from('goals').update(updates).eq('id', match.id)
+            if (!error) goalsUpdated++
+            else console.error('Error updating goal:', error)
+          }
+        } else {
+          const { error } = await supabase.from('goals').insert({
+            user_id: user.id,
+            title: g.title || '',
+            description: g.description || '',
+            priority: g.priority || 2,
+            metrics: g.metrics || '',
+            deadline: g.deadline || null,
+            risks: g.risks || '',
+            position: 0,
+          })
+          if (!error) goalsCreated++
+          else console.error('Error inserting goal:', error)
+        }
+      }
     }
 
-    // Insert people
-    let peopleCount = 0
+    // Dedup people: match by name, update existing or insert new
+    let peopleCreated = 0, peopleUpdated = 0
     if (parsed.people?.length > 0) {
-      const peopleToInsert = parsed.people.map((p: any, i: number) => ({
-        user_id: user.id,
-        name: p.name || '',
-        role: p.role || '',
-        relationship: p.relationship || 'stakeholder',
-        context: p.context || '',
-        strengths: p.strengths || '',
-        growth_areas: p.growth_areas || '',
-        motivations: p.motivations || '',
-        communication_style: p.communication_style || '',
-        current_focus: p.current_focus || '',
-        risks_concerns: p.risks_concerns || '',
-        position: i,
-      }))
+      const existing = existingPeople.data || []
+      for (const p of parsed.people) {
+        const match = findMatch(p.name, existing, (item: any) => item.name)
+        if (match) {
+          const updates = mergeFields(match, {
+            role: p.role || '',
+            relationship: p.relationship || undefined,
+            context: p.context || '',
+            strengths: p.strengths || '',
+            growth_areas: p.growth_areas || '',
+            motivations: p.motivations || '',
+            communication_style: p.communication_style || '',
+            current_focus: p.current_focus || '',
+            risks_concerns: p.risks_concerns || '',
+          }, ['role', 'relationship', 'context', 'strengths', 'growth_areas', 'motivations', 'communication_style', 'current_focus', 'risks_concerns'])
 
-      const { error: peopleError } = await supabase.from('people').insert(peopleToInsert)
-      if (peopleError) console.error('Error inserting people:', peopleError)
-      else peopleCount = peopleToInsert.length
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from('people').update(updates).eq('id', match.id)
+            if (!error) peopleUpdated++
+            else console.error('Error updating person:', error)
+          }
+        } else {
+          const { error } = await supabase.from('people').insert({
+            user_id: user.id,
+            name: p.name || '',
+            role: p.role || '',
+            relationship: p.relationship || 'stakeholder',
+            context: p.context || '',
+            strengths: p.strengths || '',
+            growth_areas: p.growth_areas || '',
+            motivations: p.motivations || '',
+            communication_style: p.communication_style || '',
+            current_focus: p.current_focus || '',
+            risks_concerns: p.risks_concerns || '',
+            position: 0,
+          })
+          if (!error) peopleCreated++
+          else console.error('Error inserting person:', error)
+        }
+      }
     }
 
-    // Insert backlog items
-    let backlogCount = 0
+    // Dedup backlog: match by title, update existing or insert new
+    let backlogCreated = 0, backlogUpdated = 0
     if (parsed.backlog?.length > 0) {
-      const backlogToInsert = parsed.backlog.map((b: any, i: number) => ({
-        user_id: user.id,
-        title: b.title || '',
-        description: b.description || '',
-        category: b.category || 'action',
-        position: i,
-      }))
+      const existing = existingBacklog.data || []
+      for (const b of parsed.backlog) {
+        const match = findMatch(b.title, existing, (item: any) => item.title)
+        if (match) {
+          const updates = mergeFields(match, {
+            description: b.description || '',
+            category: b.category || undefined,
+          }, ['description', 'category'])
 
-      const { error: backlogError } = await supabase.from('backlog').insert(backlogToInsert)
-      if (backlogError) console.error('Error inserting backlog:', backlogError)
-      else backlogCount = backlogToInsert.length
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from('backlog').update(updates).eq('id', match.id)
+            if (!error) backlogUpdated++
+            else console.error('Error updating backlog item:', error)
+          }
+        } else {
+          const { error } = await supabase.from('backlog').insert({
+            user_id: user.id,
+            title: b.title || '',
+            description: b.description || '',
+            category: b.category || 'action',
+            position: 0,
+          })
+          if (!error) backlogCreated++
+          else console.error('Error inserting backlog item:', error)
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
       summary: {
-        goalsCount,
-        peopleCount,
-        backlogCount,
+        goalsCreated,
+        goalsUpdated,
+        goalsCount: goalsCreated + goalsUpdated,
+        peopleCreated,
+        peopleUpdated,
+        peopleCount: peopleCreated + peopleUpdated,
+        backlogCreated,
+        backlogUpdated,
+        backlogCount: backlogCreated + backlogUpdated,
         profileUpdated: !!parsed.profile,
       },
       parsed,

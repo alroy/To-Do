@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { SortableKnotList } from "@/components/sortable-knot-list"
 import { KnotForm, type EditTask } from "@/components/knot-form"
+import { MorningBrief } from "@/components/morning-brief"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { TaskMetadata } from "@/lib/types"
@@ -261,6 +262,20 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
     }
   }, [knots, supabase])
 
+  // Apply AI-suggested task order from morning brief
+  const handleApplyBriefOrder = useCallback(async (taskIds: string[]) => {
+    // Build new order: prioritized tasks first, then remaining tasks in original order
+    const prioritized = taskIds
+      .map(id => knots.find(k => k.id === id))
+      .filter((k): k is Knot => k !== undefined)
+    const remaining = knots.filter(k => !taskIds.includes(k.id))
+    const reordered = [...prioritized, ...remaining]
+
+    if (reordered.length > 0) {
+      handleReorder(reordered)
+    }
+  }, [knots, handleReorder])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -275,6 +290,9 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
         <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
         <p className="text-muted-foreground">What you meant to come back to.</p>
       </header>
+
+      {/* Morning Brief — AI-generated daily priorities */}
+      <MorningBrief onApplyOrder={handleApplyBriefOrder} />
 
       {knots.length > 0 ? (
         <SortableKnotList

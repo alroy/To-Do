@@ -16,6 +16,7 @@ import {
   createForwardedFallback,
   shapeDMMessage,
   createDMFallback,
+  linkTaskToGoal,
 } from './ingest'
 
 /**
@@ -623,6 +624,12 @@ async function processMentionWithLLM(
       return { processed: false, reason: createResult.error }
     }
 
+    // Link task to goal (async, non-blocking — don't fail the pipeline if this errors)
+    if (createResult.taskId) {
+      linkTaskToGoal(supabase, createResult.taskId, userId, classification.title, classification.description)
+        .catch(err => console.error('Goal linking failed (non-fatal):', err))
+    }
+
     await logDecision(
       true,
       true,
@@ -833,6 +840,10 @@ export async function processSlackEvent(
         await updateIngestStatus(supabase, team_id, event_id, 'failed', undefined, fwdError.message)
         return { status: 'failed', error: fwdError.message }
       }
+
+      // Link forwarded DM task to goal (async, non-blocking)
+      linkTaskToGoal(supabase, fwdTask.id, user_id, fwdTitle, fwdDescription)
+        .catch(err => console.error('Goal linking failed for forwarded DM (non-fatal):', err))
 
       await updateIngestStatus(supabase, team_id, event_id, 'processed', fwdTask.id)
       return { status: 'processed', taskId: fwdTask.id }
@@ -1111,6 +1122,10 @@ export async function processSlackEvent(
         await updateIngestStatus(supabase, team_id, event_id, 'failed', undefined, dmError.message)
         return { status: 'failed', error: dmError.message }
       }
+
+      // Link DM task to goal (async, non-blocking)
+      linkTaskToGoal(supabase, dmTask.id, user_id, dmTitle, dmDescription)
+        .catch(err => console.error('Goal linking failed for DM (non-fatal):', err))
 
       await updateIngestStatus(supabase, team_id, event_id, 'processed', dmTask.id)
       return { status: 'processed', taskId: dmTask.id }

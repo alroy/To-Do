@@ -68,3 +68,13 @@ export {
   buildTaskInput,
   taskExistsForSource,
 } from './create-task'
+
+// Goal linking (types)
+export type { GoalMatchResult } from './link-goal'
+
+// Goal linking (values)
+export {
+  fetchActiveGoals,
+  matchTaskToGoal,
+  linkTaskToGoal,
+} from './link-goal'

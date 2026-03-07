@@ -73,7 +73,7 @@ export async function createTaskFromSource(
 ): Promise<CreateTaskResult> {
   try {
     // Build the task row
-    const taskRow = {
+    const taskRow: Record<string, any> = {
       title: input.title,
       description: input.description,
       status: 'active',
@@ -86,6 +86,11 @@ export async function createTaskFromSource(
       llm_confidence: input.llm_confidence,
       llm_why: input.llm_why,
       ingest_trigger: input.ingest_trigger,
+    }
+
+    // Add goal_id if provided (task-to-goal linking)
+    if (input.goal_id) {
+      taskRow.goal_id = input.goal_id
     }
 
     // Insert with ON CONFLICT handling

@@ -128,6 +128,7 @@ export interface TaskFromSourceInput {
   llm_confidence?: number
   llm_why?: string
   ingest_trigger: 'mention'
+  goal_id?: string // FK to goals table for task-to-goal linking
 }
 
 /**

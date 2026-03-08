@@ -1,4 +1,3 @@
-import { after } from 'next/server'
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import {
@@ -7,7 +6,6 @@ import {
   exchangeCodeForToken,
 } from '@/lib/monday/oauth'
 import { fetchCurrentUser } from '@/lib/monday/api'
-import { registerWebhooksForConnection } from '@/lib/monday/webhooks'
 
 /**
  * Handle Monday.com OAuth callback
@@ -131,16 +129,6 @@ export async function GET(request: NextRequest) {
 
     connectionId = inserted.id
   }
-
-  // Register webhooks on owned boards in the background (after response is sent)
-  after(async () => {
-    const adminSupabase = createAdminClient()
-    await registerWebhooksForConnection(
-      adminSupabase,
-      connectionId,
-      accessToken
-    ).catch((err) => console.error('Monday webhook registration failed:', err))
-  })
 
   return NextResponse.redirect(`${siteUrl}/?monday_connected=true`)
 }

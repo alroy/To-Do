@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, useCallback } from "react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
@@ -52,6 +52,7 @@ export default function KnotCard({
   isListDragging = false,
 }: KnotCardProps) {
   const isCompleted = status === "completed"
+  const [snoozeMenuOpen, setSnoozeMenuOpen] = useState(false)
 
   // Prepare display text - normalize Slack tokens and truncate for list view
   // Pass user_map from metadata if available for resolving @mentions to real names
@@ -156,12 +157,13 @@ export default function KnotCard({
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 rounded-lg bg-card p-4 transition-[background-color,opacity,transform,box-shadow] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+        "group relative flex items-start gap-3 rounded-lg bg-card p-4 transition-[background-color,opacity,transform,box-shadow] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
         !isOverlay && "animate-in fade-in duration-300",
         !isCompleted && "hover:bg-accent-hover",
         isCompleted && "bg-accent-subtle opacity-75",
         isDragging && "opacity-40",
         isOverlay && "shadow-md cursor-grabbing",
+        snoozeMenuOpen && "z-50",
       )}
     >
       {/* Drag handle - separate from content to not trigger edit */}
@@ -256,6 +258,7 @@ export default function KnotCard({
         title={displayText.title}
         onSnooze={onSnooze}
         onDelete={handleDeleteClick}
+        onMenuOpenChange={setSnoozeMenuOpen}
       />
     </div>
   )
@@ -268,19 +271,24 @@ const SNOOZE_OPTIONS = [
   { label: 'In 2 weeks', days: 14 },
 ]
 
-function SnoozeAndDelete({ id, title, onSnooze, onDelete }: {
+function SnoozeAndDelete({ id, title, onSnooze, onDelete, onMenuOpenChange }: {
   id: string
   title: string
   onSnooze?: (id: string, until: Date) => void
   onDelete: (e: React.MouseEvent) => void
+  onMenuOpenChange?: (open: boolean) => void
 }) {
   const [showMenu, setShowMenu] = useState(false)
+  const toggleMenu = useCallback((open: boolean) => {
+    setShowMenu(open)
+    onMenuOpenChange?.(open)
+  }, [onMenuOpenChange])
 
   return (
     <div className="flex shrink-0 items-center gap-0.5 relative">
       {onSnooze && (
         <button
-          onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }}
+          onClick={(e) => { e.stopPropagation(); toggleMenu(!showMenu) }}
           aria-label={`Snooze ${title}`}
           className="shrink-0 rounded-md p-1.5 text-muted-foreground/50 opacity-100 transition-opacity duration-100 ease-out hover:text-primary focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
           style={{ touchAction: "manipulation" }}
@@ -299,7 +307,7 @@ function SnoozeAndDelete({ id, title, onSnooze, onDelete }: {
 
       {showMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setShowMenu(false) }} />
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); toggleMenu(false) }} />
           <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-lg p-1 min-w-[140px]">
             {SNOOZE_OPTIONS.map(({ label, days }) => (
               <button
@@ -310,7 +318,7 @@ function SnoozeAndDelete({ id, title, onSnooze, onDelete }: {
                   d.setDate(d.getDate() + days)
                   d.setHours(9, 0, 0, 0)
                   onSnooze!(id, d)
-                  setShowMenu(false)
+                  toggleMenu(false)
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent rounded transition-colors"
               >

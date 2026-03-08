@@ -67,6 +67,8 @@ function SortableKnotItem({ knot, onToggle, onDelete, onEdit, onSnooze, isListDr
     isDragging,
   } = useSortable({ id: knot.id });
 
+  const [snoozeMenuOpen, setSnoozeMenuOpen] = useState(false);
+
   // Use transform with hardware acceleration hints for Safari PWA stability
   // The translateZ(0) creates a new compositing layer, preventing
   // stale transform issues when iOS Safari suspends/resumes the PWA
@@ -80,6 +82,8 @@ function SortableKnotItem({ knot, onToggle, onDelete, onEdit, onSnooze, isListDr
     // Ensure element is in its own compositing layer on iOS
     WebkitBackfaceVisibility: "hidden" as const,
     backfaceVisibility: "hidden" as const,
+    // Lift above siblings when snooze menu is open (transform creates stacking context)
+    zIndex: snoozeMenuOpen ? 50 : undefined,
   };
 
   return (
@@ -100,6 +104,7 @@ function SortableKnotItem({ knot, onToggle, onDelete, onEdit, onSnooze, isListDr
         isDragging={isDragging}
         isListDragging={isListDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
+        onSnoozeMenuOpenChange={setSnoozeMenuOpen}
       />
     </div>
   );

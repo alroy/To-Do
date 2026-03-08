@@ -31,6 +31,8 @@ export interface KnotCardProps {
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   /** Whether dragging is active in the list (used to suppress edit clicks) */
   isListDragging?: boolean
+  /** Notify parent when snooze menu opens/closes (for z-index stacking) */
+  onSnoozeMenuOpenChange?: (open: boolean) => void
 }
 
 export default function KnotCard({
@@ -50,9 +52,14 @@ export default function KnotCard({
   isOverlay = false,
   dragHandleProps,
   isListDragging = false,
+  onSnoozeMenuOpenChange,
 }: KnotCardProps) {
   const isCompleted = status === "completed"
   const [snoozeMenuOpen, setSnoozeMenuOpen] = useState(false)
+  const handleSnoozeMenuOpenChange = useCallback((open: boolean) => {
+    setSnoozeMenuOpen(open)
+    onSnoozeMenuOpenChange?.(open)
+  }, [onSnoozeMenuOpenChange])
 
   // Prepare display text - normalize Slack tokens and truncate for list view
   // Pass user_map from metadata if available for resolving @mentions to real names
@@ -258,7 +265,7 @@ export default function KnotCard({
         title={displayText.title}
         onSnooze={onSnooze}
         onDelete={handleDeleteClick}
-        onMenuOpenChange={setSnoozeMenuOpen}
+        onMenuOpenChange={handleSnoozeMenuOpenChange}
       />
     </div>
   )

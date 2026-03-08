@@ -68,8 +68,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/?monday_error=${encodeURIComponent(tokenResponse.error || 'unknown')}`)
   }
 
+  const accessToken = tokenResponse.access_token
+
   // Fetch user info from Monday API
-  const mondayUser = await fetchCurrentUser(tokenResponse.access_token)
+  const mondayUser = await fetchCurrentUser(accessToken)
   if (!mondayUser) {
     return NextResponse.redirect(`${siteUrl}/?error=monday_user_fetch_failed`)
   }
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('monday_connections')
       .update({
-        access_token: tokenResponse.access_token,
+        access_token: accessToken,
         scope: tokenResponse.scope,
         monday_user_id: mondayUserId,
         revoked_at: null,
@@ -116,7 +118,7 @@ export async function GET(request: NextRequest) {
         user_id: userId,
         account_id: accountId,
         monday_user_id: mondayUserId,
-        access_token: tokenResponse.access_token,
+        access_token: accessToken,
         scope: tokenResponse.scope,
       })
       .select('id')
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
     await registerWebhooksForConnection(
       adminSupabase,
       connectionId,
-      tokenResponse.access_token
+      accessToken
     ).catch((err) => console.error('Monday webhook registration failed:', err))
   })
 

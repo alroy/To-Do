@@ -279,7 +279,7 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
           )}>
             {goal.title}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="block text-xs text-muted-foreground">
             {goal.deadline ? `Due ${goal.deadline}` : formatRelativeTime(goal.createdAt)}
             {taskCount > 0 && <> · {taskCount} linked {taskCount === 1 ? 'task' : 'tasks'}</>}
           </span>

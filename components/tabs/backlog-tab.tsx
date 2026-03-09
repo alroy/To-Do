@@ -23,6 +23,7 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editItem, setEditItem] = useState<BacklogItem | null>(null)
   const [filterCategory, setFilterCategory] = useState<string | null>(null)
+  const [movingToTasksId, setMovingToTasksId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -130,28 +131,33 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
     const item = items.find(b => b.id === id)
     if (!item || !user) return
 
-    // Optimistic: remove from backlog list
-    setItems((prev) => prev.filter((b) => b.id !== id))
+    // Play slide-out-to-left exit animation, then remove and persist
+    setMovingToTasksId(id)
 
-    try {
-      // Insert into tasks, preserving original created_at
-      const { error: insertError } = await supabase.from('tasks').insert({
-        title: item.title,
-        description: item.description,
-        status: 'active',
-        user_id: user.id,
-        position: 0,
-        ...(item.createdAt ? { created_at: item.createdAt } : {}),
-      })
-      if (insertError) throw insertError
+    setTimeout(async () => {
+      setMovingToTasksId(null)
+      setItems((prev) => prev.filter((b) => b.id !== id))
 
-      // Delete from backlog
-      const { error: deleteError } = await supabase.from('backlog').delete().eq('id', id)
-      if (deleteError) throw deleteError
-    } catch (error) {
-      console.error('Error moving backlog item to tasks:', error)
-      loadItems() // Rollback
-    }
+      try {
+        // Insert into tasks, preserving original created_at
+        const { error: insertError } = await supabase.from('tasks').insert({
+          title: item.title,
+          description: item.description,
+          status: 'active',
+          user_id: user.id,
+          position: 0,
+          ...(item.createdAt ? { created_at: item.createdAt } : {}),
+        })
+        if (insertError) throw insertError
+
+        // Delete from backlog
+        const { error: deleteError } = await supabase.from('backlog').delete().eq('id', id)
+        if (deleteError) throw deleteError
+      } catch (error) {
+        console.error('Error moving backlog item to tasks:', error)
+        loadItems() // Rollback
+      }
+    }, 300) // Match animation duration
   }
 
   const handleSnooze = async (id: string, until: Date) => {
@@ -256,7 +262,7 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
               onDelete={() => handleDelete(item.id)}
               onResolve={() => handleResolve(item.id)}
               onMoveToTasks={() => handleMoveToTasks(item.id)}
-
+              isMovingToTasks={item.id === movingToTasksId}
               onCancelSnooze={() => handleCancelSnooze(item.id)}
             />
           ))}
@@ -281,7 +287,7 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
                 onDelete={() => handleDelete(item.id)}
                 onResolve={() => handleResolve(item.id)}
                 onMoveToTasks={() => handleMoveToTasks(item.id)}
-  
+                isMovingToTasks={item.id === movingToTasksId}
                 onCancelSnooze={() => handleCancelSnooze(item.id)}
               />
             ))}
@@ -312,9 +318,9 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
 
 // --- Backlog Card ---
 
-function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, onCancelSnooze }: {
+function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovingToTasks, onCancelSnooze }: {
   item: BacklogItem; onEdit: () => void; onDelete: () => void; onResolve: () => void; onMoveToTasks: () => void
-  onCancelSnooze: () => void
+  isMovingToTasks?: boolean; onCancelSnooze: () => void
 }) {
   const isResolved = item.status === 'resolved'
 
@@ -324,6 +330,7 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, onCance
         "group flex items-start gap-3 rounded-lg bg-card p-4 transition-[background-color,opacity] duration-200",
         !isResolved && "hover:bg-accent-hover",
         isResolved && "bg-accent-subtle opacity-75",
+        isMovingToTasks && "animate-out fade-out slide-out-to-left duration-300 fill-mode-forwards",
       )}
     >
       {/* Resolve button */}

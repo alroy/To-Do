@@ -167,7 +167,6 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
         .from('goals')
         .select('id, title, priority')
         .eq('user_id', user.id)
-        .eq('status', 'active')
         .order('priority', { ascending: true })
 
       if (error) throw error

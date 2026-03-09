@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Target, Trash2, Pencil, Plus, X, AlertTriangle } from "lucide-react"
+import { Target, Trash2, Pencil, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -160,19 +160,6 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
     }
   }
 
-  const handleMarkAtRisk = async (id: string) => {
-    const goal = goals.find(g => g.id === id)
-    if (!goal) return
-    const nextStatus = goal.status === 'at_risk' ? 'active' : 'at_risk'
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, status: nextStatus } : g))
-    try {
-      const { error } = await supabase.from('goals').update({ status: nextStatus }).eq('id', id)
-      if (error) throw error
-    } catch (error) {
-      console.error('Error updating goal status:', error)
-      loadGoals()
-    }
-  }
 
   if (loading) {
     return (
@@ -201,7 +188,6 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
               onEdit={() => { setEditGoal(goal); setIsFormOpen(true) }}
               onDelete={() => handleDelete(goal.id)}
               onStatusToggle={() => handleStatusToggle(goal.id)}
-              onMarkAtRisk={() => handleMarkAtRisk(goal.id)}
             />
           ))}
         </div>
@@ -236,7 +222,7 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
 // --- Goal Card ---
 
-function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelete, onStatusToggle, onMarkAtRisk }: {
+function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelete, onStatusToggle }: {
   goal: Goal
   taskCount: number
   isExpanded: boolean
@@ -244,16 +230,26 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
   onEdit: () => void
   onDelete: () => void
   onStatusToggle: () => void
-  onMarkAtRisk: () => void
 }) {
   const isCompleted = goal.status === 'completed'
+
+  // Auto at-risk: deadline within 2 days and not completed
+  const isAtRisk = !isCompleted && (() => {
+    if (!goal.deadline) return false
+    const deadlineDate = new Date(goal.deadline + 'T23:59:59')
+    const now = new Date()
+    const diffMs = deadlineDate.getTime() - now.getTime()
+    const diffDays = diffMs / (1000 * 60 * 60 * 24)
+    return diffDays <= 2
+  })()
 
   return (
     <div
       className={cn(
         "rounded-lg bg-card p-4 transition-[background-color,opacity] duration-200",
-        !isCompleted && "hover:bg-accent-hover",
+        !isCompleted && !isAtRisk && "hover:bg-accent-hover",
         isCompleted && "bg-accent-subtle opacity-75",
+        isAtRisk && "bg-red-50 dark:bg-red-950/30 hover:bg-red-100/80 dark:hover:bg-red-950/40",
       )}
     >
       <div className="flex items-start gap-3">
@@ -277,17 +273,12 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
 
         {/* Content */}
         <div className="min-w-0 flex-1 cursor-pointer" onClick={onToggleExpand}>
-          <div className="flex items-center gap-2">
-            <span className={cn(
-              "text-base font-semibold text-foreground",
-              isCompleted && "text-muted-foreground line-through decoration-muted-foreground/50"
-            )}>
-              {goal.title}
-            </span>
-            {goal.status === 'at_risk' && (
-              <AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-            )}
-          </div>
+          <span className={cn(
+            "text-base font-semibold text-foreground",
+            isCompleted && "text-muted-foreground line-through decoration-muted-foreground/50"
+          )}>
+            {goal.title}
+          </span>
           <span className="text-xs text-muted-foreground">
             {goal.deadline ? `Due ${goal.deadline}` : formatRelativeTime(goal.createdAt)}
             {taskCount > 0 && <> · {taskCount} linked {taskCount === 1 ? 'task' : 'tasks'}</>}
@@ -337,11 +328,6 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
               <p className="mt-1 text-foreground whitespace-pre-wrap">{goal.risks}</p>
             </div>
           )}
-          <div className="flex gap-2 pt-2">
-            <Button size="sm" variant="ghost" onClick={onMarkAtRisk} className="text-xs h-7">
-              {goal.status === 'at_risk' ? "Clear risk" : "Mark at risk"}
-            </Button>
-          </div>
         </div>
       )}
     </div>
@@ -411,7 +397,13 @@ function GoalFormModal({ goal, onSubmit, onClose }: {
   const [description, setDescription] = useState(goal?.description || '')
   const [priority, setPriority] = useState(goal?.priority || 2)
   const [metrics, setMetrics] = useState(goal?.metrics || '')
-  const [deadline, setDeadline] = useState(goal?.deadline || '')
+  const [deadline, setDeadline] = useState(() => {
+    if (goal?.deadline) return goal.deadline
+    // Default to 1 week from now for new goals
+    const d = new Date()
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().split('T')[0]
+  })
   const [risks, setRisks] = useState(goal?.risks || '')
   const [error, setError] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)

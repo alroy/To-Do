@@ -33,6 +33,7 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
   const [editTask, setEditTask] = useState<EditTask | null>(null)
   const [briefRevision, setBriefRevision] = useState(0)
   const [snoozingId, setSnoozingId] = useState<string | null>(null)
+  const [completingId, setCompletingId] = useState<string | null>(null)
   const supabase = createClient()
 
   const locallyCreatedIds = useRef<Set<string>>(new Set())
@@ -167,7 +168,6 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
         .from('goals')
         .select('id, title, priority')
         .eq('user_id', user.id)
-        .eq('status', 'active')
         .order('priority', { ascending: true })
 
       if (error) throw error
@@ -179,21 +179,64 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
 
   const handleToggle = async (id: string) => {
     const knot = knots.find((k) => k.id === id)
-    if (!knot) return
+    if (!knot || !user) return
     const newStatus = knot.status === 'active' ? 'completed' : 'active'
     locallyModifiedIds.current.add(id)
     setKnots((prev) => prev.map((k) => k.id === id ? { ...k, status: newStatus } : k))
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
-        .eq('id', id)
-      if (error) throw error
-      setBriefRevision(r => r + 1)
-    } catch (error) {
-      console.error('Error toggling knot:', error)
-      locallyModifiedIds.current.delete(id)
-      setKnots((prev) => prev.map((k) => k.id === id ? { ...k, status: knot.status } : k))
+
+    if (newStatus === 'completed') {
+      // Show completed state briefly, then move to backlog as resolved
+      setCompletingId(id)
+      try {
+        // Insert into backlog as resolved
+        const { error: insertError } = await supabase.from('backlog').insert({
+          title: knot.title,
+          description: knot.description,
+          category: 'action',
+          status: 'resolved',
+          resolved_at: new Date().toISOString(),
+          user_id: user.id,
+          position: 0,
+        })
+        if (insertError) throw insertError
+
+        // Wait for the brief visual delay, then animate out and delete from tasks
+        setTimeout(async () => {
+          setSnoozingId(id) // reuse the slide-out animation
+          setTimeout(async () => {
+            setCompletingId(null)
+            setSnoozingId(null)
+            setKnots((prev) => prev.filter((k) => k.id !== id))
+            try {
+              const { error: deleteError } = await supabase.from('tasks').delete().eq('id', id)
+              if (deleteError) throw deleteError
+              setBriefRevision(r => r + 1)
+            } catch (error) {
+              console.error('Error deleting completed task:', error)
+              loadKnots()
+            }
+          }, 300) // slide-out animation duration
+        }, 1200) // display completed state for 1.2s
+      } catch (error) {
+        console.error('Error moving completed task to backlog:', error)
+        setCompletingId(null)
+        locallyModifiedIds.current.delete(id)
+        setKnots((prev) => prev.map((k) => k.id === id ? { ...k, status: knot.status } : k))
+      }
+    } else {
+      // Uncompleting - simple toggle
+      try {
+        const { error } = await supabase
+          .from('tasks')
+          .update({ status: newStatus, completed_at: null })
+          .eq('id', id)
+        if (error) throw error
+        setBriefRevision(r => r + 1)
+      } catch (error) {
+        console.error('Error toggling knot:', error)
+        locallyModifiedIds.current.delete(id)
+        setKnots((prev) => prev.map((k) => k.id === id ? { ...k, status: knot.status } : k))
+      }
     }
   }
 

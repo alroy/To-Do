@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Target, Trash2, ChevronDown, ChevronUp, Plus, X, AlertTriangle } from "lucide-react"
+import { Target, Trash2, Pencil, Plus, X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -256,6 +257,16 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
       )}
     >
       <div className="flex items-start gap-3">
+        {/* Checkbox */}
+        <div style={{ touchAction: "manipulation" }}>
+          <Checkbox
+            id={`goal-${goal.id}`}
+            checked={isCompleted}
+            onCheckedChange={() => onStatusToggle()}
+            className="mt-0.5 shrink-0"
+          />
+        </div>
+
         {/* Priority badge */}
         <span className={cn(
           "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
@@ -265,7 +276,7 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
         </span>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onToggleExpand}>
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-base font-semibold text-foreground",
@@ -289,11 +300,11 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={onToggleExpand}
+            onClick={onEdit}
             className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground transition-colors"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
+            aria-label="Edit goal"
           >
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <Pencil className="h-4 w-4" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete() }}
@@ -327,9 +338,6 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
             </div>
           )}
           <div className="flex gap-2 pt-2">
-            <Button size="sm" variant="ghost" onClick={onStatusToggle} className="text-xs h-7">
-              {isCompleted ? "Reopen" : "Complete"}
-            </Button>
             <Button size="sm" variant="ghost" onClick={onMarkAtRisk} className="text-xs h-7">
               {goal.status === 'at_risk' ? "Clear risk" : "Mark at risk"}
             </Button>

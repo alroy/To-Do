@@ -34,6 +34,7 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
   const [briefRevision, setBriefRevision] = useState(0)
   const [snoozingId, setSnoozingId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
+  const [enteringId, setEnteringId] = useState<string | null>(null)
   const supabase = createClient()
 
   const locallyCreatedIds = useRef<Set<string>>(new Set())
@@ -83,6 +84,10 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
               sourceUrl: newTask.source_url || undefined,
               goalId: newTask.goal_id || null,
             }
+
+            // Play slide-in animation for items arriving via realtime (e.g. from backlog)
+            setEnteringId(newKnot.id)
+            setTimeout(() => setEnteringId((cur) => cur === newKnot.id ? null : cur), 400)
 
             setKnots((prev) => {
               if (prev.some((k) => k.id === newKnot.id)) return prev
@@ -418,6 +423,7 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
           onEdit={handleEdit}
           onSnooze={handleSnooze}
           snoozingId={snoozingId}
+          enteringId={enteringId}
         />
       ) : (
         <p className="py-8 text-center text-muted-foreground">

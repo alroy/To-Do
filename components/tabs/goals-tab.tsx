@@ -25,6 +25,8 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
   const [editGoal, setEditGoal] = useState<Goal | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({})
+  const [reorderingId, setReorderingId] = useState<string | null>(null)
+  const [settledId, setSettledId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
         .eq('user_id', user.id)
         .order('position', { ascending: true })
       if (error) throw error
-      setGoals((data || []).map((g: any) => ({
+      const mapped = (data || []).map((g: any) => ({
         id: g.id,
         title: g.title,
         description: g.description || '',
@@ -87,7 +89,11 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
         position: g.position,
         createdAt: g.created_at,
         completedAt: g.completed_at,
-      })))
+      }))
+      // Active goals first, completed at the bottom
+      const active = mapped.filter((g: Goal) => g.status === 'active')
+      const completed = mapped.filter((g: Goal) => g.status === 'completed')
+      setGoals([...active, ...completed])
     } catch (error) {
       console.error('Error loading goals:', error)
     } finally {
@@ -147,7 +153,24 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
     const goal = goals.find(g => g.id === id)
     if (!goal) return
     const nextStatus = goal.status === 'active' ? 'completed' : goal.status === 'completed' ? 'active' : 'active'
+
+    // Optimistic: update status immediately so checkbox reflects the change
     setGoals(prev => prev.map(g => g.id === id ? { ...g, status: nextStatus } : g))
+
+    // After a brief pause, fade out, reorder, then fade in at new position
+    setReorderingId(id)
+    setTimeout(() => {
+      setGoals(prev => {
+        const active = prev.filter(g => g.status === 'active')
+        const completed = prev.filter(g => g.status === 'completed')
+        return [...active, ...completed]
+      })
+      // Clear reorderingId and trigger fade-in at new position
+      setReorderingId(null)
+      setSettledId(id)
+      setTimeout(() => setSettledId(null), 350)
+    }, 350)
+
     try {
       const { error } = await supabase.from('goals').update({
         status: nextStatus,
@@ -184,6 +207,8 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
               goal={goal}
               taskCount={taskCounts[goal.id] || 0}
               isExpanded={expandedId === goal.id}
+              isReordering={goal.id === reorderingId}
+              isSettling={goal.id === settledId}
               onToggleExpand={() => setExpandedId(expandedId === goal.id ? null : goal.id)}
               onEdit={() => { setEditGoal(goal); setIsFormOpen(true) }}
               onDelete={() => handleDelete(goal.id)}
@@ -222,10 +247,12 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
 // --- Goal Card ---
 
-function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelete, onStatusToggle }: {
+function GoalCard({ goal, taskCount, isExpanded, isReordering, isSettling, onToggleExpand, onEdit, onDelete, onStatusToggle }: {
   goal: Goal
   taskCount: number
   isExpanded: boolean
+  isReordering?: boolean
+  isSettling?: boolean
   onToggleExpand: () => void
   onEdit: () => void
   onDelete: () => void
@@ -250,6 +277,8 @@ function GoalCard({ goal, taskCount, isExpanded, onToggleExpand, onEdit, onDelet
         !isCompleted && !isAtRisk && "hover:bg-accent-hover",
         isCompleted && "bg-accent-subtle opacity-75",
         isAtRisk && "bg-red-50 dark:bg-red-950/30 hover:bg-red-100/80 dark:hover:bg-red-950/40",
+        isReordering && "animate-out fade-out duration-300 fill-mode-forwards",
+        isSettling && "animate-in fade-in duration-300",
       )}
     >
       <div className="flex items-start gap-3">

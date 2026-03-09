@@ -132,6 +132,9 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
     const item = items.find(b => b.id === id)
     if (!item || !user) return
 
+    // Clear snooze immediately so the card shows the original timestamp during animation
+    setItems(prev => prev.map(b => b.id === id ? { ...b, snoozedUntil: null } : b))
+
     // Play exit animation, then remove from list and persist
     setMovingToTasksId(id)
 

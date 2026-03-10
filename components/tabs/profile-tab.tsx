@@ -91,6 +91,8 @@ export function ProfileTab() {
     }
   }
 
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -98,8 +100,6 @@ export function ProfileTab() {
       </div>
     )
   }
-
-  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

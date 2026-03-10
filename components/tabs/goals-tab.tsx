@@ -358,7 +358,7 @@ function GoalCard({ goal, taskCount, isExpanded, isReordering, isSettling, onTog
         <div className="mt-4 ml-10 space-y-3 text-sm">
           {goal.description && (
             <div>
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Success Criteria</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</span>
               <p className="mt-1 text-foreground whitespace-pre-wrap">{goal.description}</p>
             </div>
           )}
@@ -500,7 +500,7 @@ function GoalFormModal({ goal, onSubmit, onClose }: {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="goal-desc" className="text-sm text-muted-foreground">Success Criteria <span className="text-muted-foreground/60">(optional)</span></Label>
+                <Label htmlFor="goal-desc" className="text-sm text-muted-foreground">Description <span className="text-muted-foreground/60">(optional)</span></Label>
                 <Textarea id="goal-desc" value={description} onChange={(e) => setDescription(e.target.value)}
                   placeholder="How will you know you've achieved this?" rows={2} className="bg-card border-border/60 shadow-none resize-none" />
               </div>

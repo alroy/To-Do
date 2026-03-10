@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix"
 import { SlackSettings } from "@/components/settings/slack-settings"
-import { MondaySettings } from "@/components/settings/monday-settings"
 import Link from "next/link"
 import { Archive } from "lucide-react"
 
@@ -139,7 +138,6 @@ export function HamburgerMenu() {
             <h3 className="text-sm font-medium text-foreground mb-3">Integrations</h3>
             <div className="flex flex-col gap-2">
               <SlackSettings />
-              <MondaySettings />
             </div>
           </div>
         </div>

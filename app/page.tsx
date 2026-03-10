@@ -53,12 +53,10 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-background py-8 pb-20">
       <div ref={contentColumnRef} className="content-column">
-        {/* Header with hamburger menu - show on all tabs except profile */}
-        {activeTab !== 'profile' && (
-          <div className="flex justify-end mb-6">
-            <HamburgerMenu />
-          </div>
-        )}
+        {/* Header with hamburger menu */}
+        <div className="flex justify-end mb-6">
+          <HamburgerMenu />
+        </div>
 
         {/* Tab content */}
         <div id="tab-panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className={activeTab !== 'tasks' ? 'hidden' : undefined}>

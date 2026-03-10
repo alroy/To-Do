@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Check, FileText, LogOut } from "lucide-react"
-import { SlackSettings } from "@/components/settings/slack-settings"
-import { MondaySettings } from "@/components/settings/monday-settings"
+import { Pencil, Check, FileText } from "lucide-react"
 import type { UserProfile } from "@/lib/chief-of-staff-types"
 
 export function ProfileTab() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingSection, setEditingSection] = useState<string | null>(null)
@@ -162,22 +160,6 @@ export function ProfileTab() {
             onCancel={() => setEditingSection(null)}
           />
         ))}
-      </div>
-
-      {/* Settings */}
-      <div className="mt-10 pt-6 border-t border-border">
-        <h3 className="text-sm font-medium text-foreground mb-3">Integrations</h3>
-        <div className="flex flex-col gap-2">
-          <SlackSettings />
-          <MondaySettings />
-        </div>
-        <Button
-          onClick={signOut}
-          className="mt-4 w-full bg-accent text-foreground hover:bg-accent-hover"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign out
-        </Button>
       </div>
 
       {/* Transcript import modal */}

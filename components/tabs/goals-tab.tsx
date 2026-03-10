@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime, groupByDate } from "@/lib/utils"
-import { Target, Trash2, Pencil, Plus, X, FileText } from "lucide-react"
+import { Target, Trash2, Pencil, Plus, X, FileUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -192,17 +192,6 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
     <>
       <header className="mb-10 md:mb-12">
         <h1 className="mb-2 text-2xl font-bold text-foreground">Goals</h1>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowTranscript(true)}
-            className="text-xs h-8 gap-1.5"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Upload weekly goals
-          </Button>
-        </div>
       </header>
 
       {goals.length > 0 ? (
@@ -234,8 +223,12 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
         </p>
       )}
 
-      {/* FAB */}
-      <FAB onClick={() => { setEditGoal(null); setIsFormOpen(true) }} contentColumnRef={contentColumnRef} />
+      {/* Speed Dial FAB */}
+      <SpeedDialFAB
+        onCreateGoal={() => { setEditGoal(null); setIsFormOpen(true) }}
+        onUploadGoals={() => setShowTranscript(true)}
+        contentColumnRef={contentColumnRef}
+      />
 
       {/* Form modal */}
       {isFormOpen && (
@@ -376,9 +369,14 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
   )
 }
 
-// --- FAB ---
+// --- Speed Dial FAB ---
 
-function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumnRef: React.RefObject<HTMLDivElement | null> }) {
+function SpeedDialFAB({ onCreateGoal, onUploadGoals, contentColumnRef }: {
+  onCreateGoal: () => void
+  onUploadGoals: () => void
+  contentColumnRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
   const [fabPosition, setFabPosition] = useState<{ right: number } | null>(null)
 
   useEffect(() => {
@@ -395,27 +393,95 @@ function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumn
     return () => window.removeEventListener('resize', update)
   }, [contentColumnRef])
 
+  // Close on scroll
+  useEffect(() => {
+    if (!isOpen) return
+    const close = () => setIsOpen(false)
+    window.addEventListener('scroll', close, { passive: true, capture: true })
+    return () => window.removeEventListener('scroll', close, true)
+  }, [isOpen])
+
+  const handleAction = (action: () => void) => {
+    setIsOpen(false)
+    action()
+  }
+
+  const fixedStyle: React.CSSProperties = {
+    transform: "translateZ(0)",
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+  }
+
   return (
-    <div
-      className="fixed z-30"
-      style={{
-        bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-        right: fabPosition?.right ?? 24,
-        transform: "translateZ(0)",
-        WebkitBackfaceVisibility: "hidden",
-        backfaceVisibility: "hidden",
-      }}
-    >
-      <Button
-        onClick={onClick}
-        size="icon"
-        className="h-14 w-14 md:h-12 md:w-12 rounded-full shadow-lg"
-        style={{ touchAction: "manipulation" }}
-        aria-label="Add goal"
+    <>
+      {/* Scrim overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 animate-in fade-in duration-200"
+          style={fixedStyle}
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* FAB container */}
+      <div
+        className="fixed z-50"
+        style={{
+          ...fixedStyle,
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: fabPosition?.right ?? 24,
+        }}
       >
-        <Plus className="h-6 w-6 md:h-5 md:w-5" />
-      </Button>
-    </div>
+        {/* Speed dial menu items */}
+        {isOpen && (
+          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            {/* Top item: Upload weekly goals */}
+            <button
+              onClick={() => handleAction(onUploadGoals)}
+              className="flex items-center gap-3 group min-h-[48px]"
+              style={{ touchAction: "manipulation" }}
+            >
+              <span className="rounded-full bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-md whitespace-nowrap">
+                Upload weekly goals
+              </span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-foreground shadow-md">
+                <FileUp className="h-5 w-5" />
+              </span>
+            </button>
+
+            {/* Bottom item: Create a goal */}
+            <button
+              onClick={() => handleAction(onCreateGoal)}
+              className="flex items-center gap-3 group min-h-[48px]"
+              style={{ touchAction: "manipulation" }}
+            >
+              <span className="rounded-full bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-md whitespace-nowrap">
+                Create a goal
+              </span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-foreground shadow-md">
+                <Target className="h-5 w-5" />
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* Main FAB button */}
+        <Button
+          onClick={() => setIsOpen(!isOpen)}
+          size="icon"
+          className="h-14 w-14 md:h-12 md:w-12 rounded-full shadow-lg"
+          style={{ touchAction: "manipulation" }}
+          aria-label={isOpen ? "Close menu" : "Add goal"}
+          aria-expanded={isOpen}
+        >
+          <Plus className={cn(
+            "h-6 w-6 md:h-5 md:w-5 transition-transform duration-200",
+            isOpen && "rotate-45"
+          )} />
+        </Button>
+      </div>
+    </>
   )
 }
 

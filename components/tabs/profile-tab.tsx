@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Check, FileText } from "lucide-react"
+import { Pencil, Check, FileText, Camera } from "lucide-react"
 import type { UserProfile } from "@/lib/chief-of-staff-types"
 
 export function ProfileTab() {
@@ -55,6 +55,7 @@ export function ProfileTab() {
   const mapProfile = (data: any): UserProfile => ({
     id: data.id,
     name: data.name || '',
+    avatarUrl: data.avatar_url || '',
     roleTitle: data.role_title || '',
     roleDescription: data.role_description || '',
     communicationStyle: data.communication_style || '',
@@ -98,7 +99,35 @@ export function ProfileTab() {
     )
   }
 
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+
+    // Validate file type and size (max 2MB)
+    if (!file.type.startsWith('image/')) return
+    if (file.size > 2 * 1024 * 1024) return
+
+    // Resize and compress to data URL
+    const dataUrl = await resizeImage(file, 256)
+    setProfile({ ...profile, avatarUrl: dataUrl })
+
+    try {
+      const { error } = await supabase
+        .from('user_profile')
+        .update({ avatar_url: dataUrl })
+        .eq('id', profile.id)
+      if (error) throw error
+    } catch (error) {
+      console.error('Error saving avatar:', error)
+      loadProfile()
+    }
+  }
+
   if (!profile) return null
+
+  const avatarSrc = profile.avatarUrl || user?.user_metadata?.avatar_url
 
   const sections = [
     { key: 'name', label: 'Name', value: profile.name, placeholder: 'Your full name', isInput: true },
@@ -115,32 +144,47 @@ export function ProfileTab() {
     <div>
       {/* Header with user info */}
       <header className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden bg-accent shrink-0">
-            {user?.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
+        <div className="flex items-center gap-4 mb-4">
+          {/* Avatar with upload overlay */}
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            className="relative w-16 h-16 rounded-full overflow-hidden bg-accent shrink-0 group cursor-pointer"
+          >
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-lg font-medium">
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-2xl font-medium">
                 {(profile.name || user?.email || '?').charAt(0).toUpperCase()}
               </div>
             )}
-          </div>
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="h-5 w-5 text-white" />
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">{profile.name || 'Your Profile'}</h1>
-            <p className="text-sm text-muted-foreground">{profile.roleTitle || user?.email}</p>
+            {user?.email && (
+              <p className="text-xs text-muted-foreground mt-0.5">{user.email}</p>
+            )}
           </div>
         </div>
 
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
+          <button
             onClick={() => setShowTranscript(true)}
-            className="text-xs h-8 gap-1.5"
+            className="inline-flex items-center gap-1.5 text-xs font-medium h-8 px-3.5 rounded-full bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
           >
             <FileText className="h-3.5 w-3.5" />
             Import from transcript
-          </Button>
+          </button>
         </div>
       </header>
 
@@ -372,4 +416,30 @@ function TranscriptImportModal({ onClose, onImported }: { onClose: () => void; o
       </div>
     </>
   )
+}
+
+// --- Image Resize Utility ---
+
+function resizeImage(file: File, maxSize: number): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        if (width > height) {
+          if (width > maxSize) { height = (height * maxSize) / width; width = maxSize }
+        } else {
+          if (height > maxSize) { width = (width * maxSize) / height; height = maxSize }
+        }
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.85))
+      }
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
 }

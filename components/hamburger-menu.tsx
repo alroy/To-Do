@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { Button } from "@/components/ui/button"
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix"
 import { SlackSettings } from "@/components/settings/slack-settings"
 import Link from "next/link"
@@ -125,13 +124,13 @@ export function HamburgerMenu() {
             </Link>
           </div>
 
-          {/* Sign Out Button */}
-          <Button
+          {/* Sign Out */}
+          <button
             onClick={handleSignOut}
-            className="mt-4 w-full bg-accent text-foreground hover:bg-accent-hover"
+            className="mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Sign out
-          </Button>
+          </button>
 
           {/* Integration Settings */}
           <div className="border-t border-border pt-6 mt-6 w-full">

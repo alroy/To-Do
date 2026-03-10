@@ -47,6 +47,7 @@ export interface BacklogItem {
 export interface UserProfile {
   id: string
   name: string
+  avatarUrl: string
   roleTitle: string
   roleDescription: string
   communicationStyle: string

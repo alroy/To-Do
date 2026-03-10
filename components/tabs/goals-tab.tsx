@@ -465,7 +465,7 @@ function SpeedDialFAB({ onCreateGoal, onUploadGoals, contentColumnRef }: {
               </span>
             </button>
 
-            {/* Bottom item: Archive */}
+            {/* Bottom item: Goals archive */}
             <Link
               href="/goals-archive"
               onClick={() => setIsOpen(false)}
@@ -473,7 +473,7 @@ function SpeedDialFAB({ onCreateGoal, onUploadGoals, contentColumnRef }: {
               style={{ touchAction: "manipulation" }}
             >
               <span className="rounded-full bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-md whitespace-nowrap">
-                Archive
+                Goals archive
               </span>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-foreground shadow-md">
                 <Archive className="h-5 w-5" />

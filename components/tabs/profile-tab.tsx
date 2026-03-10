@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Check, FileText, Camera } from "lucide-react"
+import { Pencil, Check, FileText, Camera, Plus } from "lucide-react"
+import { SlackSettings } from "@/components/settings/slack-settings"
+import { cn } from "@/lib/utils"
 import type { UserProfile } from "@/lib/chief-of-staff-types"
 
-export function ProfileTab() {
-  const { user } = useAuth()
+interface ProfileTabProps {
+  contentColumnRef: React.RefObject<HTMLDivElement | null>
+}
+
+export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
+  const { user, signOut } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingSection, setEditingSection] = useState<string | null>(null)
@@ -177,15 +183,6 @@ export function ProfileTab() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowTranscript(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium h-8 px-3.5 rounded-full bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Import from transcript
-          </button>
-        </div>
       </header>
 
       {/* Profile sections */}
@@ -205,6 +202,30 @@ export function ProfileTab() {
           />
         ))}
       </div>
+
+      {/* Integrations */}
+      <div className="border-t border-border pt-6 mt-8">
+        <h3 className="text-sm font-medium text-foreground mb-3">Integrations</h3>
+        <div className="flex flex-col gap-2">
+          <SlackSettings />
+        </div>
+      </div>
+
+      {/* Sign Out */}
+      <div className="mt-6 pb-4">
+        <button
+          onClick={() => signOut()}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+
+      {/* FAB */}
+      <ProfileFAB
+        onImportTranscript={() => setShowTranscript(true)}
+        contentColumnRef={contentColumnRef}
+      />
 
       {/* Transcript import modal */}
       {showTranscript && (
@@ -307,6 +328,101 @@ function ProfileSection({ sectionKey, label, value, placeholder, isInput, isEdit
         <Pencil className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
     </div>
+  )
+}
+
+// --- Profile FAB ---
+
+function ProfileFAB({ onImportTranscript, contentColumnRef }: {
+  onImportTranscript: () => void
+  contentColumnRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [fabPosition, setFabPosition] = useState<{ right: number } | null>(null)
+
+  useEffect(() => {
+    const update = () => {
+      if (!contentColumnRef?.current || !window.matchMedia('(min-width: 768px)').matches) {
+        setFabPosition(null)
+        return
+      }
+      const rect = contentColumnRef.current.getBoundingClientRect()
+      setFabPosition({ right: window.innerWidth - rect.right + 20 })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [contentColumnRef])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const close = () => setIsOpen(false)
+    window.addEventListener('scroll', close, { passive: true, capture: true })
+    return () => window.removeEventListener('scroll', close, true)
+  }, [isOpen])
+
+  const handleAction = (action: () => void) => {
+    setIsOpen(false)
+    action()
+  }
+
+  const fixedStyle: React.CSSProperties = {
+    transform: "translateZ(0)",
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+  }
+
+  return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 animate-in fade-in duration-200"
+          style={fixedStyle}
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <div
+        className="fixed z-50"
+        style={{
+          ...fixedStyle,
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: fabPosition?.right ?? 24,
+        }}
+      >
+        {isOpen && (
+          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <button
+              onClick={() => handleAction(onImportTranscript)}
+              className="flex items-center gap-3 group min-h-[48px]"
+              style={{ touchAction: "manipulation" }}
+            >
+              <span className="rounded-full bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-md whitespace-nowrap">
+                Import from transcript
+              </span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-foreground shadow-md">
+                <FileText className="h-5 w-5" />
+              </span>
+            </button>
+          </div>
+        )}
+
+        <Button
+          onClick={() => setIsOpen(!isOpen)}
+          size="icon"
+          className="h-14 w-14 md:h-12 md:w-12 rounded-full shadow-lg"
+          style={{ touchAction: "manipulation" }}
+          aria-label={isOpen ? "Close menu" : "Profile actions"}
+          aria-expanded={isOpen}
+        >
+          <Plus className={cn(
+            "h-6 w-6 md:h-5 md:w-5 transition-transform duration-200",
+            isOpen && "rotate-45"
+          )} />
+        </Button>
+      </div>
+    </>
   )
 }
 

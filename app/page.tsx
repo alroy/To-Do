@@ -98,7 +98,7 @@ function PageContent() {
           <BacklogTab contentColumnRef={contentColumnRef} />
         </div>
         <div id="tab-panel-profile" role="tabpanel" aria-labelledby="tab-profile" className={activeTab !== 'profile' ? 'hidden' : undefined}>
-          <ProfileTab />
+          <ProfileTab contentColumnRef={contentColumnRef} />
         </div>
       </div>
 

@@ -41,7 +41,7 @@ export default function GoalsArchivePage() {
         deadline: g.deadline,
         risks: g.risks || '',
         position: g.position,
-        createdAt: g.completed_at || g.created_at,
+        createdAt: g.created_at,
         completedAt: g.completed_at,
       })))
     } catch (error) {

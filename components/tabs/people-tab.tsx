@@ -23,6 +23,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editPerson, setEditPerson] = useState<Person | null>(null)
   const [detailPerson, setDetailPerson] = useState<Person | null>(null)
+  const [deleteConfirmPerson, setDeleteConfirmPerson] = useState<Person | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -151,7 +152,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
         person={detailPerson}
         onBack={() => setDetailPerson(null)}
         onEdit={() => { setEditPerson(detailPerson); setIsFormOpen(true) }}
-        onDelete={() => handleDelete(detailPerson.id)}
+        onDelete={() => setDeleteConfirmPerson(detailPerson)}
       />
     )
   }
@@ -179,7 +180,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
                       key={person.id}
                       person={person}
                       onClick={() => setDetailPerson(person)}
-                      onDelete={() => handleDelete(person.id)}
+                      onDelete={() => setDeleteConfirmPerson(person)}
                     />
                   ))}
                 </div>
@@ -209,6 +210,14 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
             setDetailPerson(null)
           }}
           onClose={() => { setIsFormOpen(false); setEditPerson(null) }}
+        />
+      )}
+
+      {deleteConfirmPerson && (
+        <DeleteConfirmModal
+          personName={deleteConfirmPerson.name}
+          onConfirm={() => { handleDelete(deleteConfirmPerson.id); setDeleteConfirmPerson(null) }}
+          onClose={() => setDeleteConfirmPerson(null)}
         />
       )}
     </>
@@ -352,6 +361,46 @@ function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumn
         <Plus className="h-6 w-6 md:h-5 md:w-5" />
       </Button>
     </div>
+  )
+}
+
+// --- Delete Confirm Modal ---
+
+function DeleteConfirmModal({ personName, onConfirm, onClose }: {
+  personName: string; onConfirm: () => void; onClose: () => void
+}) {
+  const fixedStyle: React.CSSProperties = {
+    transform: "translateZ(0)",
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" style={fixedStyle} onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-x-4 z-50 mx-auto max-w-sm"
+        style={{ ...fixedStyle, top: "50%", transform: "translateY(-50%) translateZ(0)" }}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-background rounded-lg shadow-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Delete person</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Delete <span className="font-medium text-foreground">{personName}</span>? This can&apos;t be undone.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-5 h-9 font-medium">
+              Delete
+            </Button>
+            <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-100">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 

@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: CalendarPayload = await request.json()
+    console.log('Calendar ingest payload:', JSON.stringify(body))
 
     if (!body.event_id || !body.title || !body.start_time || !body.end_time) {
       return NextResponse.json(
@@ -64,8 +65,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Calendar ingest error:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', detail: message },
       { status: 500 }
     )
   }

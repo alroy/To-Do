@@ -390,13 +390,13 @@ function DeleteConfirmModal({ personName, onConfirm, onClose }: {
           <p className="text-sm text-muted-foreground mb-6">
             Delete <span className="font-medium text-foreground">{personName}</span>? This can&apos;t be undone.
           </p>
-          <div className="flex items-center gap-3">
-            <Button onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-5 h-9 font-medium">
-              Delete
-            </Button>
+          <div className="flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-100">
               Cancel
             </button>
+            <Button onClick={onConfirm} className="bg-red-600 text-white hover:bg-red-700 px-5 h-9 font-medium">
+              Delete
+            </Button>
           </div>
         </div>
       </div>

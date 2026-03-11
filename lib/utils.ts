@@ -33,6 +33,44 @@ export function groupByDate<T extends { createdAt?: string }>(items: T[]): { lab
   return Array.from(groups.entries()).map(([label, items]) => ({ label, items }))
 }
 
+/**
+ * Group items by priority, returning sections ordered P0 → P1 → P2 → Unassigned.
+ * Within each group, items are sorted by deadline ascending (nulls last),
+ * then alphabetically by title for stable ordering.
+ */
+export function groupByPriority<T extends { priority: number; deadline: string | null; title: string }>(
+  items: T[]
+): { label: string; items: T[] }[] {
+  const priorityOrder = [1, 2, 3]
+  const labels: Record<number, string> = { 1: 'P0 Goals', 2: 'P1 Goals', 3: 'P2 Goals' }
+  const groups = new Map<number, T[]>()
+
+  for (const item of items) {
+    const key = priorityOrder.includes(item.priority) ? item.priority : 0
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(item)
+  }
+
+  for (const [, groupItems] of groups) {
+    groupItems.sort((a, b) => {
+      if (a.deadline && b.deadline) {
+        const cmp = a.deadline.localeCompare(b.deadline)
+        return cmp !== 0 ? cmp : a.title.localeCompare(b.title)
+      }
+      if (a.deadline && !b.deadline) return -1
+      if (!a.deadline && b.deadline) return 1
+      return a.title.localeCompare(b.title)
+    })
+  }
+
+  const result: { label: string; items: T[] }[] = []
+  for (const p of priorityOrder) {
+    if (groups.has(p)) result.push({ label: labels[p], items: groups.get(p)! })
+  }
+  if (groups.has(0)) result.push({ label: 'Unassigned Priority', items: groups.get(0)! })
+  return result
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

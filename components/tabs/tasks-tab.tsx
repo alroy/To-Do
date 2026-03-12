@@ -424,9 +424,13 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
           enteringId={enteringId}
         />
       ) : (
-        <p className="py-8 text-center text-muted-foreground">
-          No knots to track. Add some to get started!
-        </p>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <img src="/inbox.svg" alt="" aria-hidden="true" className="h-20 w-20 opacity-40 mb-5" />
+          <p className="text-lg font-semibold text-foreground mb-1">Inbox zero.</p>
+          <p className="text-muted-foreground text-sm max-w-[300px]">
+            No knots to track. Add some to get started!
+          </p>
+        </div>
       )}
 
       <KnotForm

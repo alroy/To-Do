@@ -22,6 +22,8 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
   const [loading, setLoading] = useState(true)
   const [editingSection, setEditingSection] = useState<string | null>(null)
   const [showTranscript, setShowTranscript] = useState(false)
+  const [editName, setEditName] = useState('')
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -135,21 +137,41 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
 
   const avatarSrc = profile.avatarUrl || user?.user_metadata?.avatar_url
 
-  const sections = [
-    { key: 'name', label: 'Name', value: profile.name, placeholder: 'Your full name', isInput: true },
+  const profileSections = [
     { key: 'roleTitle', label: 'Role', value: profile.roleTitle, placeholder: 'e.g. VP of Engineering', isInput: true },
     { key: 'roleDescription', label: 'Responsibilities', value: profile.roleDescription, placeholder: 'Core responsibilities and scope...' },
+  ]
+
+  const workingPrefSections = [
     { key: 'communicationStyle', label: 'Communication Style', value: profile.communicationStyle, placeholder: 'How you prefer to receive information...' },
     { key: 'thinkingStyle', label: 'How You Think', value: profile.thinkingStyle, placeholder: 'How you approach problems...' },
     { key: 'blindSpots', label: 'Blind Spots', value: profile.blindSpots, placeholder: 'What you want to be challenged on...' },
     { key: 'energyDrains', label: 'Energy', value: profile.energyDrains, placeholder: 'What drains vs. energizes you...' },
+  ]
+
+  const aiPrefSections = [
     { key: 'aiInstructions', label: 'AI Instructions', value: profile.aiInstructions, placeholder: 'How your AI Chief of Staff should work with you...' },
   ]
 
+  const handleNameEdit = () => {
+    setEditName(profile.name)
+    setEditingSection('name')
+    setTimeout(() => nameInputRef.current?.focus(), 50)
+  }
+
+  const handleNameSave = () => {
+    handleSave('name', editName.trim())
+  }
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleNameSave() }
+    if (e.key === 'Escape') setEditingSection(null)
+  }
+
   return (
-    <div>
+    <div className="pb-24">
       {/* Header with user info */}
-      <header className="mb-8">
+      <header className="mb-10 md:mb-12">
         <div className="flex items-center gap-4 mb-4">
           {/* Avatar with upload overlay */}
           <button
@@ -175,45 +197,109 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
               className="hidden"
             />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{profile.name || 'Your Profile'}</h1>
+          <div className="min-w-0 flex-1">
+            {editingSection === 'name' ? (
+              <div>
+                <Input
+                  ref={nameInputRef}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  placeholder="Your full name"
+                  className="text-2xl font-bold h-auto py-0 px-0 bg-transparent border-none shadow-none focus-visible:ring-0 text-foreground"
+                />
+                <div className="flex gap-2 mt-1">
+                  <Button size="sm" onClick={handleNameSave} className="text-xs h-7 gap-1">
+                    <Check className="h-3 w-3" /> Save
+                  </Button>
+                  <button onClick={() => setEditingSection(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="group cursor-pointer flex items-center gap-2" onClick={handleNameEdit}>
+                <h1 className="text-2xl font-bold text-foreground">{profile.name || 'Your Profile'}</h1>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
             {user?.email && (
               <p className="text-xs text-muted-foreground mt-0.5">{user.email}</p>
             )}
           </div>
         </div>
-
       </header>
 
-      {/* Profile sections */}
-      <div className="space-y-1">
-        {sections.map(({ key, label, value, placeholder, isInput }) => (
-          <ProfileSection
-            key={key}
-            sectionKey={key}
-            label={label}
-            value={value}
-            placeholder={placeholder}
-            isInput={isInput}
-            isEditing={editingSection === key}
-            onStartEdit={() => setEditingSection(key)}
-            onSave={(v) => handleSave(key, v)}
-            onCancel={() => setEditingSection(null)}
-          />
-        ))}
+      {/* PROFILE card */}
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Profile</h3>
+      <div className="rounded-lg bg-card p-4 mb-6">
+        <div className="space-y-1">
+          {profileSections.map(({ key, label, value, placeholder, isInput }) => (
+            <ProfileSection
+              key={key}
+              sectionKey={key}
+              label={label}
+              value={value}
+              placeholder={placeholder}
+              isInput={isInput}
+              isEditing={editingSection === key}
+              onStartEdit={() => setEditingSection(key)}
+              onSave={(v) => handleSave(key, v)}
+              onCancel={() => setEditingSection(null)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Integrations */}
-      <div className="border-t border-border pt-6 mt-8">
-        <h3 className="text-sm font-medium text-foreground mb-3 px-3">Integrations</h3>
+      {/* WORKING PREFERENCES card */}
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Working Preferences</h3>
+      <div className="rounded-lg bg-card p-4 mb-6">
+        <div className="space-y-1">
+          {workingPrefSections.map(({ key, label, value, placeholder }) => (
+            <ProfileSection
+              key={key}
+              sectionKey={key}
+              label={label}
+              value={value}
+              placeholder={placeholder}
+              isEditing={editingSection === key}
+              onStartEdit={() => setEditingSection(key)}
+              onSave={(v) => handleSave(key, v)}
+              onCancel={() => setEditingSection(null)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* AI PREFERENCES card */}
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">AI Preferences</h3>
+      <div className="rounded-lg bg-card p-4 mb-6">
+        <div className="space-y-1">
+          {aiPrefSections.map(({ key, label, value, placeholder }) => (
+            <ProfileSection
+              key={key}
+              sectionKey={key}
+              label={label}
+              value={value}
+              placeholder={placeholder}
+              isEditing={editingSection === key}
+              onStartEdit={() => setEditingSection(key)}
+              onSave={(v) => handleSave(key, v)}
+              onCancel={() => setEditingSection(null)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Settings zone */}
+      <div className="border-t border-border mt-8 pt-8">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Settings</h3>
         <SlackSettings />
-      </div>
 
-      {/* Sign Out */}
-      <div className="mt-6 pb-8 px-3">
+        {/* Sign Out */}
         <button
           onClick={() => signOut()}
-          className="text-sm font-medium text-destructive border border-destructive/30 rounded-lg px-4 py-2 hover:bg-destructive/10 transition-colors"
+          className="mt-6 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
         >
           Sign out
         </button>
@@ -273,7 +359,7 @@ function ProfileSection({ sectionKey, label, value, placeholder, isInput, isEdit
 
   if (isEditing) {
     return (
-      <div className="rounded-lg bg-card p-4">
+      <div className="p-4">
         <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</Label>
         <div className="mt-2">
           {isInput ? (

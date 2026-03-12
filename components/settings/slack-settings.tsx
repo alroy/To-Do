@@ -21,6 +21,7 @@ export function SlackSettings() {
   const [connection, setConnection] = useState<SlackConnection | null>(null)
   const [loading, setLoading] = useState(true)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false)
 
   // Check if Slack feature is enabled (based on presence of connection data)
   const [featureEnabled, setFeatureEnabled] = useState(true)
@@ -83,7 +84,12 @@ export function SlackSettings() {
       }
     } finally {
       setDisconnecting(false)
+      setShowDisconnectModal(false)
     }
+  }
+
+  const confirmDisconnect = () => {
+    handleDisconnect()
   }
 
   // Don't render if feature is not enabled
@@ -92,7 +98,8 @@ export function SlackSettings() {
   }
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-accent">
+    <>
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-accent">
         {/* Slack Icon */}
         <div className="w-8 h-8 flex items-center justify-center">
           <img src="/slack-svgrepo-com.svg" alt="" className="w-6 h-6" />
@@ -116,7 +123,7 @@ export function SlackSettings() {
         {!loading && (
           connection ? (
             <button
-              onClick={handleDisconnect}
+              onClick={() => setShowDisconnectModal(true)}
               disabled={disconnecting}
               className="text-xs font-medium text-destructive border border-destructive/30 rounded-full px-3 py-1 hover:bg-destructive/10 transition-colors disabled:opacity-50"
             >
@@ -133,5 +140,48 @@ export function SlackSettings() {
           )
         )}
       </div>
+
+      {/* Disconnect confirmation modal */}
+      {showDisconnectModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            style={{ transform: "translateZ(0)" }}
+            onClick={() => setShowDisconnectModal(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed inset-x-4 z-50 mx-auto max-w-sm"
+            style={{ top: "50%", transform: "translateY(-50%) translateZ(0)" }}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-background rounded-lg shadow-xl p-6">
+              <h2 className="text-lg font-bold text-foreground mb-2">Disconnect Slack</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Are you sure you want to disconnect Slack? You will no longer be able to sync tasks or receive notifications.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDisconnectModal(false)}
+                >
+                  Cancel
+                </Button>
+                <button
+                  onClick={confirmDisconnect}
+                  disabled={disconnecting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {disconnecting ? "Disconnecting..." : "Disconnect"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }

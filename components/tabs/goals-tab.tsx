@@ -191,8 +191,9 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
   return (
     <>
-      <header className="mb-10 md:mb-12">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Goals</h1>
+      <header className="mb-6 md:mb-8">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Weekly Goals</h1>
+        <p className="text-muted-foreground">Your highest priorities for the week.</p>
       </header>
 
       {goals.length > 0 ? (
@@ -221,9 +222,9 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <Trophy className="h-16 w-16 text-primary/40 mb-5" strokeWidth={2} />
-          <p className="text-lg font-semibold text-foreground mb-1">Weekly goals crushed!</p>
+          <p className="text-lg font-semibold text-foreground mb-1">Weekly goals complete.</p>
           <p className="text-muted-foreground text-sm max-w-[300px]">
-            You&apos;ve successfully untangled all your major priorities. Take a well-deserved breath.
+            You&apos;ve cleared all your major priorities. Enjoy the quiet, or get a head start on next week.
           </p>
         </div>
       )}

@@ -483,7 +483,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
                 const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || ''
                 const count = openItems.length
                 const contextual = count === 0
-                  ? ''
+                  ? "You're all caught up."
                   : count === 1
                     ? 'Just 1 knot left to untangle.'
                     : `You have ${count} knots to untangle.`
@@ -538,9 +538,10 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
         </div>
       ) : doneItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <CircleCheckBig className="h-12 w-12 text-muted-foreground/40 mb-4" strokeWidth={1.5} />
-          <p className="text-muted-foreground text-base">
-            All clear! Your knots are completely untangled for now.
+          <CircleCheckBig className="h-16 w-16 text-muted-foreground/30 mb-5" strokeWidth={2} />
+          <p className="text-lg font-semibold text-foreground mb-1">All clear!</p>
+          <p className="text-muted-foreground text-sm max-w-[260px]">
+            Your knots are completely untangled for now.
           </p>
         </div>
       ) : (

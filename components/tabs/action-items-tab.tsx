@@ -700,7 +700,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
   return (
     <div
       className={cn(
-        "group rounded-lg bg-card p-4 transition-[background-color,opacity,transform] duration-200",
+        "group rounded-lg bg-card p-4 overflow-hidden transition-[background-color,opacity,transform] duration-200",
         !isExiting && "animate-in fade-in duration-300",
         !isDone && "hover:bg-accent-hover",
         isDone && "bg-accent-subtle opacity-75",
@@ -737,7 +737,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
           }}
         >
           <p className={cn(
-            "text-base font-semibold text-foreground",
+            "text-base font-semibold text-foreground break-words",
             isDone && "text-muted-foreground line-through decoration-muted-foreground/50"
           )}>
             {item.title}
@@ -746,7 +746,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
           {/* Description for task-origin items */}
           {item.origin === 'task' && item.description && (
             <p className={cn(
-              "mt-1 text-sm text-muted-foreground",
+              "mt-1 text-sm text-muted-foreground break-words",
               isDone && "text-muted-foreground/70"
             )}>
               {item.description}

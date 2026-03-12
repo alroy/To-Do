@@ -10,9 +10,11 @@ import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import { prepareTaskForListView, detectSlackTask } from "@/lib/slack/text-utils"
 
-/** Strip trailing "Source: https://..." from action item text */
+/** Strip "Source: https://..." from text — handles trailing, inline, and newline-prefixed */
 function stripSourceSuffix(text: string): string {
-  return text.replace(/\s*Source:\s*https?:\/\/\S+\s*$/i, '').trim()
+  return text
+    .replace(/[\s.]*Source:\s*https?:\/\/\S+/gi, '')
+    .trim()
 }
 
 // --- Unified inbox item that can come from action_items or tasks table ---
@@ -144,8 +146,8 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
         return {
           id: row.id,
           origin: 'task' as const,
-          title: row.title,
-          description: row.description || '',
+          title: stripSourceSuffix(row.title),
+          description: stripSourceSuffix(row.description || ''),
           source,
           sourceChannel: null,
           messageFrom: null,

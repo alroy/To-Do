@@ -256,14 +256,13 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
       <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Working Preferences</h3>
       <div className="rounded-lg bg-card p-4 mb-6">
         <div className="space-y-1">
-          {workingPrefSections.map(({ key, label, value, placeholder, isInput }) => (
+          {workingPrefSections.map(({ key, label, value, placeholder }) => (
             <ProfileSection
               key={key}
               sectionKey={key}
               label={label}
               value={value}
               placeholder={placeholder}
-              isInput={isInput}
               isEditing={editingSection === key}
               onStartEdit={() => setEditingSection(key)}
               onSave={(v) => handleSave(key, v)}
@@ -277,14 +276,13 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
       <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">AI Preferences</h3>
       <div className="rounded-lg bg-card p-4 mb-6">
         <div className="space-y-1">
-          {aiPrefSections.map(({ key, label, value, placeholder, isInput }) => (
+          {aiPrefSections.map(({ key, label, value, placeholder }) => (
             <ProfileSection
               key={key}
               sectionKey={key}
               label={label}
               value={value}
               placeholder={placeholder}
-              isInput={isInput}
               isEditing={editingSection === key}
               onStartEdit={() => setEditingSection(key)}
               onSave={(v) => handleSave(key, v)}

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, X, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
+import { Check, Trash2, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
@@ -359,6 +359,22 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
     }
   }
 
+  const handleActionItemDelete = async (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id))
+    try {
+      const { error } = await supabase.from('action_items').delete().eq('id', id)
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting action item:', error)
+      loadAllItems()
+    }
+  }
+
+  const handleDelete = (id: string, origin: InboxOrigin) => {
+    if (origin === 'task') handleTaskDelete(id)
+    else handleActionItemDelete(id)
+  }
+
   // --- FAB: Add new task ---
 
   const handleAddTask = async (data: { title: string; description: string }) => {
@@ -533,13 +549,13 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
               isExiting={exitingId === item.id}
               onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
               onDone={() => item.origin === 'action-item' ? handleActionItemDone(item.id) : handleTaskDone(item.id)}
-              onDismiss={item.origin === 'action-item' ? () => handleActionItemDismiss(item.id) : undefined}
               onSnooze={
                 item.origin === 'task'
                   ? (until: Date) => handleTaskSnooze(item.id, until)
                   : () => handleActionItemSnooze(item.id)
               }
-              onDelete={item.origin === 'task' ? () => handleTaskDelete(item.id) : undefined}
+              onDelete={() => handleDelete(item.id, item.origin)}
+              requireDeleteConfirm
               onEdit={item.origin === 'task' ? () => {
                 setEditTask({
                   id: item.id,
@@ -574,6 +590,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
                 isExiting={false}
                 onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
                 onReopen={item.origin === 'action-item' ? () => handleActionItemReopen(item.id) : undefined}
+                onDelete={() => handleDelete(item.id, item.origin)}
               />
             ))}
           </div>
@@ -641,22 +658,42 @@ function SnoozeMenu({ onSnooze, onClose }: {
 
 // --- Unified Inbox Card ---
 
-function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onDismiss, onReopen, onSnooze, onDelete, onEdit }: {
+function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReopen, onSnooze, onDelete, onEdit, requireDeleteConfirm }: {
   item: InboxItem
   isExpanded: boolean
   isExiting: boolean
   onToggleExpand: () => void
   onDone?: () => void
-  onDismiss?: () => void
   onReopen?: () => void
   onSnooze?: ((until: Date) => void) | (() => void)
   onDelete?: () => void
   onEdit?: () => void
+  /** When true, first click shows confirm state; second click deletes */
+  requireDeleteConfirm?: boolean
 }) {
   const [showSnoozeMenu, setShowSnoozeMenu] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDone = item.origin === 'action-item'
     ? (item.status === 'done' || item.status === 'dismissed')
     : item.status === 'completed'
+
+  // Auto-clear confirm state after 3s
+  useEffect(() => {
+    if (confirmingDelete) {
+      confirmTimer.current = setTimeout(() => setConfirmingDelete(false), 3000)
+      return () => { if (confirmTimer.current) clearTimeout(confirmTimer.current) }
+    }
+  }, [confirmingDelete])
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (requireDeleteConfirm && !confirmingDelete) {
+      setConfirmingDelete(true)
+      return
+    }
+    onDelete?.()
+  }
 
   return (
     <div
@@ -735,7 +772,6 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onDism
                 if (item.origin === 'task') {
                   setShowSnoozeMenu(!showSnoozeMenu)
                 } else {
-                  // Action items just get dismissed (no date picker)
                   ;(onSnooze as () => void)()
                 }
               }}
@@ -756,14 +792,19 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onDism
             />
           )}
 
-          {/* Dismiss (action items only) */}
-          {!isDone && onDismiss && (
+          {/* Delete button */}
+          {onDelete && (
             <button
-              onClick={(e) => { e.stopPropagation(); onDismiss() }}
-              className="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-              aria-label="Dismiss"
+              onClick={handleDeleteClick}
+              className={cn(
+                "shrink-0 p-1.5 rounded-md transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+                confirmingDelete
+                  ? "text-destructive sm:!opacity-100"
+                  : "text-muted-foreground/50 hover:text-destructive"
+              )}
+              aria-label={confirmingDelete ? "Confirm delete" : "Delete"}
             >
-              <X className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>

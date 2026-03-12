@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, Trash2, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
+import { Check, Trash2, MessageSquare, Video, RefreshCw, Clock, ClipboardList, CircleCheckBig } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
@@ -55,7 +55,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
   const [items, setItems] = useState<InboxItem[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [filterSource, setFilterSource] = useState<string | null>(null)
+  // filterSource removed — origin is already shown in card metadata footer
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [exitingId, setExitingId] = useState<string | null>(null)
   const [goals, setGoals] = useState<GoalOption[]>([])
@@ -453,20 +453,11 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
     }
   }
 
-  // --- Filtering ---
-
-  const filteredItems = filterSource
-    ? items.filter(i => i.source === filterSource)
-    : items
-
   const isItemOpen = (item: InboxItem) => {
     if (item.origin === 'action-item') return item.status === 'new'
     return item.status === 'active'
   }
-  const isItemDone = (item: InboxItem) => !isItemOpen(item)
-
-  const openItems = filteredItems.filter(isItemOpen)
-  const doneItems = filteredItems.filter(isItemDone)
+  const openItems = items.filter(isItemOpen)
 
   if (loading) {
     return (
@@ -481,8 +472,21 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       <header className="mb-6 md:mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Inbox</h1>
-            <p className="text-muted-foreground">Everything that needs your attention.</p>
+            <h1 className="mb-2 text-2xl font-bold text-foreground">My Knots</h1>
+            <p className="text-muted-foreground">
+              {(() => {
+                const hour = new Date().getHours()
+                const greeting = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : 'Good evening'
+                const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || ''
+                const count = openItems.length
+                const contextual = count === 0
+                  ? "You're all caught up."
+                  : count === 1
+                    ? 'Just 1 knot left to untangle.'
+                    : `You have ${count} knots to untangle.`
+                return `${greeting}${firstName ? `, ${firstName}` : ''}. ${contextual}`.trim()
+              })()}
+            </p>
           </div>
           <button
             onClick={handleSync}
@@ -497,49 +501,6 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
           </button>
         </div>
       </header>
-
-      {/* Source filter chips */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setFilterSource(null)}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
-            !filterSource ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          )}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilterSource(filterSource === 'slack' ? null : 'slack')}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors inline-flex items-center gap-1",
-            filterSource === 'slack' ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          )}
-        >
-          <MessageSquare className="h-3 w-3" />
-          Slack
-        </button>
-        <button
-          onClick={() => setFilterSource(filterSource === 'granola' ? null : 'granola')}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors inline-flex items-center gap-1",
-            filterSource === 'granola' ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          )}
-        >
-          <Video className="h-3 w-3" />
-          Meetings
-        </button>
-        <button
-          onClick={() => setFilterSource(filterSource === 'manual' ? null : 'manual')}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors inline-flex items-center gap-1",
-            filterSource === 'manual' ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          )}
-        >
-          <ClipboardList className="h-3 w-3" />
-          Manual
-        </button>
-      </div>
 
       {openItems.length > 0 ? (
         <div className="flex flex-col gap-3">
@@ -573,29 +534,12 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
           ))}
         </div>
       ) : (
-        <p className="py-8 text-center text-muted-foreground">
-          {filterSource ? `No open ${filterSource === 'slack' ? 'Slack' : filterSource === 'granola' ? 'meeting' : 'manual'} items.` : 'No open items in your inbox.'}
-        </p>
-      )}
-
-      {doneItems.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-            Completed ({doneItems.length})
-          </h2>
-          <div className="flex flex-col gap-2">
-            {doneItems.map((item) => (
-              <InboxCard
-                key={`${item.origin}-${item.id}`}
-                item={item}
-                isExpanded={expandedId === item.id}
-                isExiting={false}
-                onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                onReopen={item.origin === 'action-item' ? () => handleActionItemReopen(item.id) : undefined}
-                onDelete={() => handleDelete(item.id, item.origin)}
-              />
-            ))}
-          </div>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <CircleCheckBig className="h-16 w-16 text-muted-foreground/30 mb-5" strokeWidth={2} />
+          <p className="text-lg font-semibold text-foreground mb-1">All clear!</p>
+          <p className="text-muted-foreground text-sm max-w-[260px]">
+            Your knots are completely untangled for now.
+          </p>
         </div>
       )}
 

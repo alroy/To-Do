@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
-import { cn, formatRelativeTime, groupByDate } from "@/lib/utils"
+import { cn, formatRelativeTime, groupByPriority } from "@/lib/utils"
 import { Target, Trash2, Pencil, Plus, X, FileUp, Archive } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -197,7 +197,7 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
       {goals.length > 0 ? (
         <div className="flex flex-col gap-6">
-          {groupByDate(goals).map(({ label, items }) => (
+          {groupByPriority(goals).map(({ label, items }) => (
             <div key={label}>
               <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">{label}</h2>
               <div className="flex flex-col gap-3">

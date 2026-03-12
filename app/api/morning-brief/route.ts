@@ -62,7 +62,12 @@ export async function GET(request: Request) {
     }
 
     // Fetch all context in parallel
-    const [tasksRes, goalsRes, backlogRes, profileRes] = await Promise.all([
+    const todayStart = `${today}T00:00:00+00:00`
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStart = `${tomorrow.toISOString().split('T')[0]}T00:00:00+00:00`
+
+    const [tasksRes, goalsRes, backlogRes, profileRes, calendarRes] = await Promise.all([
       supabase
         .from('tasks')
         .select('id, title, description, status, position, goal_id, created_at, source_type')
@@ -87,12 +92,20 @@ export async function GET(request: Request) {
         .select('name, role_title, ai_instructions')
         .eq('user_id', user.id)
         .single(),
+      supabase
+        .from('calendar_events')
+        .select('title, start_time, end_time, attendees, location')
+        .eq('user_id', user.id)
+        .gte('start_time', todayStart)
+        .lt('start_time', tomorrowStart)
+        .order('start_time', { ascending: true }),
     ])
 
     const tasks = tasksRes.data || []
     const goals = goalsRes.data || []
     const backlog = backlogRes.data || []
     const profile = profileRes.data
+    const calendarEvents = calendarRes.data || []
 
     // Build task-to-goal mapping
     const goalMap = new Map(goals.map((g: any) => [g.id, g.title]))
@@ -117,6 +130,20 @@ export async function GET(request: Request) {
     const backlogText = backlog.length > 0
       ? backlog.slice(0, 15).map((b: any) => `- [${b.category}] ${b.title}`).join('\n')
       : 'No open backlog items.'
+
+    const calendarText = calendarEvents.length > 0
+      ? calendarEvents.map((e: any) => {
+          const start = new Date(e.start_time).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Jerusalem',
+          })
+          const end = new Date(e.end_time).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Jerusalem',
+          })
+          const attendees = e.attendees?.length > 0 ? ` (with ${e.attendees.join(', ')})` : ''
+          const location = e.location ? ` — ${e.location}` : ''
+          return `- ${start} – ${end}: ${e.title}${attendees}${location}`
+        }).join('\n')
+      : 'No calendar events today.'
 
     const profileText = profile
       ? `${profile.name || 'User'}, ${profile.role_title || ''}${profile.ai_instructions ? `\nAI instructions: ${profile.ai_instructions}` : ''}`
@@ -144,6 +171,11 @@ Rules:
 - Prioritize tasks that relate to P0 goals, have deadlines, or came from Slack (someone is waiting)
 - Risks should flag overdue deadlines, at-risk goals, or too many tasks without goal alignment
 - Suggestions should be actionable (e.g., "Consider resolving the open decision about X before your 1:1")
+- If calendar events are provided, factor them into prioritization:
+  - Suggest preparing for important meetings (1:1s, reviews, planning sessions)
+  - Identify free time blocks for deep work on P0 tasks
+  - Flag conflicts between meetings and task deadlines
+  - Reference specific meetings by name and time when relevant
 - Keep everything concise — this is a mobile screen
 - Return ALL task IDs you reference in prioritizedTaskIds, in recommended order`,
       messages: [{
@@ -161,6 +193,9 @@ ${tasksText}
 
 ## Open Backlog
 ${backlogText}
+
+## Today's Calendar
+${calendarText}
 
 JSON only.`,
       }],

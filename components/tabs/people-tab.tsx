@@ -23,6 +23,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editPerson, setEditPerson] = useState<Person | null>(null)
   const [detailPerson, setDetailPerson] = useState<Person | null>(null)
+  const [deleteConfirmPerson, setDeleteConfirmPerson] = useState<Person | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -131,6 +132,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
   // Group by relationship
   const grouped = {
     manager: people.filter(p => p.relationship === 'manager'),
+    team: people.filter(p => p.relationship === 'team'),
     report: people.filter(p => p.relationship === 'report'),
     stakeholder: people.filter(p => p.relationship === 'stakeholder'),
   }
@@ -146,12 +148,37 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
   // Detail view
   if (detailPerson) {
     return (
-      <PersonDetail
-        person={detailPerson}
-        onBack={() => setDetailPerson(null)}
-        onEdit={() => { setEditPerson(detailPerson); setIsFormOpen(true) }}
-        onDelete={() => handleDelete(detailPerson.id)}
-      />
+      <>
+        <PersonDetail
+          person={detailPerson}
+          onBack={() => setDetailPerson(null)}
+          onEdit={() => { setEditPerson(detailPerson); setIsFormOpen(true) }}
+          onDelete={() => setDeleteConfirmPerson(detailPerson)}
+        />
+
+        {isFormOpen && (
+          <PersonFormModal
+            person={editPerson}
+            onSubmit={(data) => {
+              if (editPerson) {
+                handleUpdate(editPerson.id, data)
+              }
+              setIsFormOpen(false)
+              setEditPerson(null)
+              setDetailPerson(null)
+            }}
+            onClose={() => { setIsFormOpen(false); setEditPerson(null) }}
+          />
+        )}
+
+        {deleteConfirmPerson && (
+          <DeleteConfirmModal
+            personName={deleteConfirmPerson.name}
+            onConfirm={() => { handleDelete(deleteConfirmPerson.id); setDeleteConfirmPerson(null) }}
+            onClose={() => setDeleteConfirmPerson(null)}
+          />
+        )}
+      </>
     )
   }
 
@@ -164,13 +191,13 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
 
       {people.length > 0 ? (
         <div className="space-y-6">
-          {(['manager', 'report', 'stakeholder'] as const).map((rel) => {
+          {(['manager', 'team', 'report', 'stakeholder'] as const).map((rel) => {
             const group = grouped[rel]
             if (group.length === 0) return null
             return (
               <div key={rel}>
                 <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-                  {rel === 'report' ? 'Direct Reports' : rel === 'manager' ? 'Manager' : 'Stakeholders'}
+                  {rel === 'report' ? 'Direct Reports' : rel === 'manager' ? 'Manager' : rel === 'team' ? 'Team' : 'Stakeholders'}
                 </h2>
                 <div className="flex flex-col gap-2">
                   {group.map((person) => (
@@ -178,7 +205,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
                       key={person.id}
                       person={person}
                       onClick={() => setDetailPerson(person)}
-                      onDelete={() => handleDelete(person.id)}
+                      onDelete={() => setDeleteConfirmPerson(person)}
                     />
                   ))}
                 </div>
@@ -208,6 +235,14 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
             setDetailPerson(null)
           }}
           onClose={() => { setIsFormOpen(false); setEditPerson(null) }}
+        />
+      )}
+
+      {deleteConfirmPerson && (
+        <DeleteConfirmModal
+          personName={deleteConfirmPerson.name}
+          onConfirm={() => { handleDelete(deleteConfirmPerson.id); setDeleteConfirmPerson(null) }}
+          onClose={() => setDeleteConfirmPerson(null)}
         />
       )}
     </>
@@ -354,12 +389,52 @@ function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumn
   )
 }
 
+// --- Delete Confirm Modal ---
+
+function DeleteConfirmModal({ personName, onConfirm, onClose }: {
+  personName: string; onConfirm: () => void; onClose: () => void
+}) {
+  const fixedStyle: React.CSSProperties = {
+    transform: "translateZ(0)",
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" style={fixedStyle} onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-x-4 z-50 mx-auto max-w-sm"
+        style={{ ...fixedStyle, top: "50%", transform: "translateY(-50%) translateZ(0)" }}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-background rounded-lg shadow-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Delete person</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Delete <span className="font-medium text-foreground">{personName}</span>? This can&apos;t be undone.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-100">
+              Cancel
+            </button>
+            <Button onClick={onConfirm} className="bg-red-600 text-white hover:bg-red-700 px-5 h-9 font-medium">
+              Delete
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // --- Person Form Modal ---
 
 interface PersonFormData {
   name: string
   role: string
-  relationship: 'manager' | 'report' | 'stakeholder'
+  relationship: 'manager' | 'team' | 'report' | 'stakeholder'
   context: string
   strengths: string
   growthAreas: string
@@ -376,7 +451,7 @@ function PersonFormModal({ person, onSubmit, onClose }: {
 }) {
   const [name, setName] = useState(person?.name || '')
   const [role, setRole] = useState(person?.role || '')
-  const [relationship, setRelationship] = useState<'manager' | 'report' | 'stakeholder'>(person?.relationship || 'stakeholder')
+  const [relationship, setRelationship] = useState<'manager' | 'team' | 'report' | 'stakeholder'>(person?.relationship || 'stakeholder')
   const [context, setContext] = useState(person?.context || '')
   const [strengths, setStrengths] = useState(person?.strengths || '')
   const [growthAreas, setGrowthAreas] = useState(person?.growthAreas || '')
@@ -433,7 +508,7 @@ function PersonFormModal({ person, onSubmit, onClose }: {
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Relationship</Label>
                 <div className="flex gap-2">
-                  {(['manager', 'report', 'stakeholder'] as const).map((rel) => (
+                  {(['manager', 'team', 'report', 'stakeholder'] as const).map((rel) => (
                     <button key={rel} type="button" onClick={() => setRelationship(rel)}
                       className={cn(
                         "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",

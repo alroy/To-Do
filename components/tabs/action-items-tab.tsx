@@ -4,11 +4,16 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, X, ExternalLink, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
+import { Check, X, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import { prepareTaskForListView, detectSlackTask } from "@/lib/slack/text-utils"
+
+/** Strip trailing "Source: https://..." from action item text */
+function stripSourceSuffix(text: string): string {
+  return text.replace(/\s*Source:\s*https?:\/\/\S+\s*$/i, '').trim()
+}
 
 // --- Unified inbox item that can come from action_items or tasks table ---
 
@@ -116,7 +121,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       const actionItems: InboxItem[] = (actionResult.data || []).map((row: any) => ({
         id: row.id,
         origin: 'action-item' as const,
-        title: row.action_item,
+        title: stripSourceSuffix(row.action_item),
         description: '',
         source: row.source as 'slack' | 'granola',
         sourceChannel: row.source_channel,
@@ -722,20 +727,6 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onDism
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-0.5 relative">
-          {/* External link */}
-          {item.messageLink && (
-            <a
-              href={item.messageLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-primary transition-colors"
-              aria-label="Open source"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          )}
-
           {/* Snooze button */}
           {!isDone && onSnooze && (
             <button

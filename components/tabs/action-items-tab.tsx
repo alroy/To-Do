@@ -74,6 +74,8 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
   const [editTask, setEditTask] = useState<EditTask | null>(null)
   const supabase = createClient()
   const locallyCreatedIds = useRef<Set<string>>(new Set())
+  const editTaskRef = useRef<EditTask | null>(null)
+  useEffect(() => { editTaskRef.current = editTask }, [editTask])
 
   useEffect(() => {
     if (user) {
@@ -81,6 +83,13 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       loadGoals()
     }
   }, [user])
+
+  // Reload goals when editing starts to include assigned (possibly completed) goal
+  useEffect(() => {
+    if (editTask?.goalId) {
+      loadGoals(editTask.goalId)
+    }
+  }, [editTask])
 
   // Real-time subscriptions for both tables
   useEffect(() => {
@@ -106,9 +115,17 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       })
       .subscribe()
 
+    const goalsChannel = supabase
+      .channel('inbox-goals-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, () => {
+        loadGoals(editTaskRef.current?.goalId)
+      })
+      .subscribe()
+
     return () => {
       supabase.removeChannel(actionChannel)
       supabase.removeChannel(tasksChannel)
+      supabase.removeChannel(goalsChannel)
     }
   }, [user])
 
@@ -204,16 +221,31 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
     }
   }
 
-  const loadGoals = async () => {
+  const loadGoals = async (assignedGoalId?: string | null) => {
     if (!user) return
     try {
       const { data, error } = await supabase
         .from('goals')
-        .select('id, title, priority')
+        .select('id, title, priority, status')
         .eq('user_id', user.id)
+        .in('status', ['active', 'at_risk'])
         .order('priority', { ascending: true })
       if (error) throw error
-      setGoals((data || []).map((g: any) => ({ id: g.id, title: g.title, priority: g.priority })))
+      const activeGoals = (data || []).map((g: any) => ({ id: g.id, title: g.title, priority: g.priority, status: g.status as string }))
+
+      // If editing an item with an assigned goal that's no longer active, fetch it separately
+      if (assignedGoalId && !activeGoals.some((g) => g.id === assignedGoalId)) {
+        const { data: assignedData } = await supabase
+          .from('goals')
+          .select('id, title, priority, status')
+          .eq('id', assignedGoalId)
+          .single()
+        if (assignedData) {
+          activeGoals.push({ id: assignedData.id, title: assignedData.title, priority: assignedData.priority, status: assignedData.status as string })
+        }
+      }
+
+      setGoals(activeGoals)
     } catch (error) {
       console.error('Error loading goals:', error)
     }
@@ -410,12 +442,14 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
 
   // --- FAB: Add new task ---
 
-  const handleAddTask = async (data: { title: string; description: string }) => {
+  const handleAddTask = async (data: { title: string; description: string; goalId?: string | null }) => {
     if (!user) return
     try {
+      const insert: Record<string, any> = { title: data.title, description: data.description, status: 'active', user_id: user.id, position: 0 }
+      if (data.goalId) insert.goal_id = data.goalId
       const { data: newTask, error } = await supabase
         .from('tasks')
-        .insert({ title: data.title, description: data.description, status: 'active', user_id: user.id, position: 0 })
+        .insert(insert)
         .select()
         .single()
       if (error) throw error

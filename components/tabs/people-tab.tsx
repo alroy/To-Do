@@ -490,6 +490,10 @@ function PersonFormModal({ person, onSubmit, onClose }: {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-background rounded-lg shadow-xl p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground mb-2">{person ? "Edit Person" : "Add Person"}</h2>
+            <p className="text-sm text-muted-foreground">Add a new colleague or stakeholder to your network.</p>
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">

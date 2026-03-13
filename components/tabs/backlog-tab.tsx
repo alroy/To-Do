@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { BacklogItem } from "@/lib/chief-of-staff-types"
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/chief-of-staff-types"
 
 interface BacklogTabProps {
   contentColumnRef: React.RefObject<HTMLDivElement | null>
@@ -22,7 +21,6 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editItem, setEditItem] = useState<BacklogItem | null>(null)
-  const [filterCategory, setFilterCategory] = useState<string | null>(null)
   const [movingToTasksId, setMovingToTasksId] = useState<string | null>(null)
   const supabase = createClient()
 
@@ -74,7 +72,6 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
       const { error } = await supabase.from('backlog').insert({
         title: data.title,
         description: data.description,
-        category: data.category,
         user_id: user.id,
         position: 0,
       })
@@ -90,7 +87,6 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
       const { error } = await supabase.from('backlog').update({
         title: data.title,
         description: data.description,
-        category: data.category,
       }).eq('id', id)
       if (error) throw error
       loadItems()
@@ -205,12 +201,15 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
     }
   }, [items, user])
 
-  const filteredItems = filterCategory
-    ? items.filter(b => b.category === filterCategory)
-    : items
-
-  const openItems = filteredItems.filter(b => b.status === 'open')
-  const resolvedItems = filteredItems.filter(b => b.status === 'resolved')
+  // Sort into three zones: Active (manual, no snooze) → Snoozed → Resolved
+  const activeItems = items
+    .filter(b => b.status === 'open' && !b.snoozedUntil)
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+  const snoozedItems = items
+    .filter(b => b.status === 'open' && b.snoozedUntil)
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+  const resolvedItems = items.filter(b => b.status === 'resolved')
+  const openItems = [...activeItems, ...snoozedItems]
 
   if (loading) {
     return (
@@ -227,72 +226,55 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
         <p className="text-muted-foreground">Things to think about, decide, or fix.</p>
       </header>
 
-      {/* Category filter chips */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1 -mx-1 px-1">
-        <button
-          onClick={() => setFilterCategory(null)}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
-            !filterCategory ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          )}
-        >
-          All
-        </button>
-        {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setFilterCategory(filterCategory === key ? null : key)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
-              filterCategory === key ? CATEGORY_COLORS[key] : "bg-accent text-muted-foreground"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {openItems.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          {openItems.map((item) => (
-            <BacklogCard
-              key={item.id}
-              item={item}
-              onEdit={() => { setEditItem(item); setIsFormOpen(true) }}
-              onDelete={() => handleDelete(item.id)}
-              onResolve={() => handleResolve(item.id)}
-              onMoveToTasks={() => handleMoveToTasks(item.id)}
-              isMovingToTasks={item.id === movingToTasksId}
-              onCancelSnooze={() => handleCancelSnooze(item.id)}
-            />
-          ))}
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <img src="/backlog.svg" alt="" aria-hidden="true" className="h-20 w-20 opacity-40 mb-5" />
+          <p className="text-lg font-semibold text-foreground mb-1">Clear backlog.</p>
+          <p className="text-muted-foreground text-sm max-w-[300px]">
+            Your parking lot is empty. Future ideas and snoozed items will rest here.
+          </p>
         </div>
       ) : (
-        <p className="py-8 text-center text-muted-foreground">
-          {filterCategory ? `No open ${CATEGORY_LABELS[filterCategory].toLowerCase()} items.` : 'No open items. Add something to your backlog.'}
-        </p>
-      )}
+        <>
+          {openItems.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {openItems.map((item) => (
+                <BacklogCard
+                  key={item.id}
+                  item={item}
+                  onEdit={() => { setEditItem(item); setIsFormOpen(true) }}
+                  onDelete={() => handleDelete(item.id)}
+                  onResolve={() => handleResolve(item.id)}
+                  onMoveToTasks={() => handleMoveToTasks(item.id)}
+                  isMovingToTasks={item.id === movingToTasksId}
+                  onCancelSnooze={() => handleCancelSnooze(item.id)}
+                />
+              ))}
+            </div>
+          )}
 
-      {resolvedItems.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-            Resolved ({resolvedItems.length})
-          </h2>
-          <div className="flex flex-col gap-2">
-            {resolvedItems.map((item) => (
-              <BacklogCard
-                key={item.id}
-                item={item}
-                onEdit={() => { setEditItem(item); setIsFormOpen(true) }}
-                onDelete={() => handleDelete(item.id)}
-                onResolve={() => handleResolve(item.id)}
-                onMoveToTasks={() => handleMoveToTasks(item.id)}
-                isMovingToTasks={item.id === movingToTasksId}
-                onCancelSnooze={() => handleCancelSnooze(item.id)}
-              />
-            ))}
-          </div>
-        </div>
+          {resolvedItems.length > 0 && (
+            <div className={openItems.length > 0 ? "mt-8" : ""}>
+              <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
+                Resolved ({resolvedItems.length})
+              </h2>
+              <div className="flex flex-col gap-2">
+                {resolvedItems.map((item) => (
+                  <BacklogCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => { setEditItem(item); setIsFormOpen(true) }}
+                    onDelete={() => handleDelete(item.id)}
+                    onResolve={() => handleResolve(item.id)}
+                    onMoveToTasks={() => handleMoveToTasks(item.id)}
+                    isMovingToTasks={item.id === movingToTasksId}
+                    onCancelSnooze={() => handleCancelSnooze(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <FAB onClick={() => { setEditItem(null); setIsFormOpen(true) }} contentColumnRef={contentColumnRef} />
@@ -369,20 +351,12 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
 
       {/* Content */}
       <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shrink-0",
-            CATEGORY_COLORS[item.category]
-          )}>
-            {CATEGORY_LABELS[item.category]}
-          </span>
-          <span className={cn(
-            "text-base font-semibold text-foreground truncate",
-            isResolved && "text-muted-foreground line-through decoration-muted-foreground/50"
-          )}>
-            {item.title}
-          </span>
-        </div>
+        <span className={cn(
+          "text-base font-semibold text-foreground truncate block",
+          isResolved && "text-muted-foreground line-through decoration-muted-foreground/50"
+        )}>
+          {item.title}
+        </span>
         {!(item.snoozedUntil && !isResolved) && (
           <span className="text-xs text-muted-foreground">{formatRelativeTime(item.createdAt)}</span>
         )}
@@ -486,7 +460,6 @@ function FAB({ onClick, contentColumnRef }: { onClick: () => void; contentColumn
 interface BacklogFormData {
   title: string
   description: string
-  category: 'question' | 'decision' | 'process' | 'idea' | 'action'
 }
 
 function BacklogFormModal({ item, onSubmit, onClose }: {
@@ -496,7 +469,6 @@ function BacklogFormModal({ item, onSubmit, onClose }: {
 }) {
   const [title, setTitle] = useState(item?.title || '')
   const [description, setDescription] = useState(item?.description || '')
-  const [category, setCategory] = useState<BacklogFormData['category']>(item?.category || 'action')
   const [error, setError] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
 
@@ -508,7 +480,7 @@ function BacklogFormModal({ item, onSubmit, onClose }: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) { setError('Please add a title'); return }
-    onSubmit({ title: title.trim(), description: description.trim(), category })
+    onSubmit({ title: title.trim(), description: description.trim() })
   }
 
   const fixedStyle: React.CSSProperties = {
@@ -528,6 +500,10 @@ function BacklogFormModal({ item, onSubmit, onClose }: {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-background rounded-lg shadow-xl p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground mb-2">{item ? "Edit Item" : "Add to Backlog"}</h2>
+            <p className="text-sm text-muted-foreground">Park an idea, question, or future task.</p>
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -535,21 +511,6 @@ function BacklogFormModal({ item, onSubmit, onClose }: {
                 <Input ref={titleRef} id="backlog-title" value={title} onChange={(e) => { setTitle(e.target.value); setError('') }}
                   placeholder="What needs attention?" className="h-10 bg-card border-border/60 shadow-none" />
                 {error && <p className="text-sm text-destructive">{error}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Category</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {(Object.entries(CATEGORY_LABELS) as [BacklogFormData['category'], string][]).map(([key, label]) => (
-                    <button key={key} type="button" onClick={() => setCategory(key)}
-                      className={cn(
-                        "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",
-                        category === key ? CATEGORY_COLORS[key] : "bg-accent text-muted-foreground"
-                      )}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div className="space-y-2">

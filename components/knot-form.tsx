@@ -27,6 +27,7 @@ export interface GoalOption {
   id: string
   title: string
   priority: number
+  status?: string
 }
 
 interface KnotFormProps {
@@ -373,7 +374,12 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
             </div>
 
             {/* Goal selector */}
-            {goals && (
+            {goals && (() => {
+              const activeGoals = goals.filter((g) => g.status !== 'completed')
+              const completedGoal = goals.find((g) => g.status === 'completed' && g.id === selectedGoalId)
+              const hasActiveGoals = activeGoals.length > 0
+              const isDisabled = !hasActiveGoals && !completedGoal
+              return (
               <div className="space-y-2 mb-6">
                 <Label htmlFor="goal" className="text-sm text-muted-foreground">
                   Goal <span className="text-muted-foreground/60">(optional)</span>
@@ -382,11 +388,16 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
                   id="goal"
                   value={selectedGoalId}
                   onChange={(e) => setSelectedGoalId(e.target.value)}
-                  disabled={goals.length === 0}
-                  className={`flex h-10 w-full rounded-md border border-border/60 bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring${goals.length === 0 ? ' opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={isDisabled || (!hasActiveGoals && !!completedGoal)}
+                  className={`flex h-10 w-full rounded-md border border-border/60 bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring${isDisabled || (!hasActiveGoals && !!completedGoal) ? ' opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <option value="">{goals.length === 0 ? "No active goals" : "No goal"}</option>
-                  {goals
+                  <option value="">{!hasActiveGoals && !completedGoal ? "No active goals" : "No goal"}</option>
+                  {completedGoal && (
+                    <option key={completedGoal.id} value={completedGoal.id} disabled>
+                      {PRIORITY_LABELS[completedGoal.priority] || 'P2'} — {completedGoal.title} (completed)
+                    </option>
+                  )}
+                  {activeGoals
                     .sort((a, b) => a.priority - b.priority)
                     .map((g) => (
                       <option key={g.id} value={g.id}>
@@ -395,7 +406,8 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
                     ))}
                 </select>
               </div>
-            )}
+              )
+            })()}
 
             {/* Read-only provenance row for Slack/Granola-origin tasks */}
             {isEditMode && provenance?.hasProvenance && (

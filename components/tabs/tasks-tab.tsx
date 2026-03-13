@@ -40,6 +40,8 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
   const locallyCreatedIds = useRef<Set<string>>(new Set())
   const locallyModifiedIds = useRef<Set<string>>(new Set())
   const isBatchOperation = useRef(false)
+  const editTaskRef = useRef<EditTask | null>(null)
+  useEffect(() => { editTaskRef.current = editTask }, [editTask])
 
   useEffect(() => {
     if (user) {
@@ -47,6 +49,13 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
       loadGoals()
     }
   }, [user])
+
+  // Reload goals when editing starts to include assigned (possibly completed) goal
+  useEffect(() => {
+    if (editTask?.goalId) {
+      loadGoals(editTask.goalId)
+    }
+  }, [editTask])
 
   // Subscribe to real-time changes
   useEffect(() => {
@@ -135,7 +144,7 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
     const goalsChannel = supabase
       .channel('tasks-goals-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, () => {
-        loadGoals()
+        loadGoals(editTaskRef.current?.goalId)
       })
       .subscribe()
 
@@ -173,7 +182,7 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
     }
   }
 
-  const loadGoals = async () => {
+  const loadGoals = async (assignedGoalId?: string | null) => {
     if (!user) return
     try {
       const { data, error } = await supabase
@@ -184,7 +193,21 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
         .order('priority', { ascending: true })
 
       if (error) throw error
-      setGoals((data || []).map((g: any) => ({ id: g.id, title: g.title, priority: g.priority })))
+      const activeGoals = (data || []).map((g: any) => ({ id: g.id, title: g.title, priority: g.priority, status: g.status as string }))
+
+      // If editing an item with an assigned goal that's no longer active, fetch it separately
+      if (assignedGoalId && !activeGoals.some((g) => g.id === assignedGoalId)) {
+        const { data: assignedData } = await supabase
+          .from('goals')
+          .select('id, title, priority, status')
+          .eq('id', assignedGoalId)
+          .single()
+        if (assignedData) {
+          activeGoals.push({ id: assignedData.id, title: assignedData.title, priority: assignedData.priority, status: assignedData.status as string })
+        }
+      }
+
+      setGoals(activeGoals)
     } catch (error) {
       console.error('Error loading goals:', error)
     }

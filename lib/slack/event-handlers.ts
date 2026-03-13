@@ -675,6 +675,14 @@ export async function processSlackEvent(
     return { status: 'failed', error: ingestError.message }
   }
 
+  // Guard: skip task creation when Monday.com board is the sole ingestion source.
+  // The webhook still responds 200 (preventing Slack from disabling the app)
+  // and the event is logged to slack_event_ingest for audit.
+  if (process.env.SLACK_CREATE_TASKS !== 'true') {
+    await updateIngestStatus(supabase, team_id, event_id, 'ignored', undefined, 'task_creation_disabled')
+    return { status: 'ignored', reason: 'task_creation_disabled' }
+  }
+
   // Step 2: Find active Slack connection for this team (include access_token for API calls)
   const { data: connections, error: connError } = await supabase
     .from('slack_connections')

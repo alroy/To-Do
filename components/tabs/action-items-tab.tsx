@@ -17,6 +17,18 @@ function stripSourceSuffix(text: string): string {
     .trim()
 }
 
+/** Normalize a Slack permalink for dedup comparison — strips varying query params */
+function normalizeSlackUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    u.searchParams.delete('cid')
+    u.searchParams.delete('thread_ts')
+    return u.origin + u.pathname
+  } catch {
+    return url.toLowerCase().trim()
+  }
+}
+
 // --- Unified inbox item that can come from action_items or tasks table ---
 
 type InboxOrigin = 'action-item' | 'task'
@@ -172,13 +184,14 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
         taskItems
           .map(t => t.messageLink || t.sourceUrl)
           .filter((url): url is string => !!url)
+          .map(normalizeSlackUrl)
       )
 
       const dedupedActionItems = actionItems.filter(ai => {
         // Skip action items whose title already exists as a task
         if (taskTitles.has(ai.title.toLowerCase().trim())) return false
         // Skip action items whose message_link matches a task's source_url
-        if (ai.messageLink && taskSourceUrls.has(ai.messageLink)) return false
+        if (ai.messageLink && taskSourceUrls.has(normalizeSlackUrl(ai.messageLink))) return false
         return true
       })
 

@@ -665,7 +665,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
                   setEditTask({
                     id: item.id,
                     title: item.title,
-                    description: '',
+                    description: item.rawContext || '',
                     sourceType: item.source === 'manual' ? undefined : item.source,
                     sourceUrl: item.messageLink || undefined,
                     goalId: null,

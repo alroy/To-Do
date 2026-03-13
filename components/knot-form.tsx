@@ -30,13 +30,13 @@ export interface GoalOption {
 }
 
 interface KnotFormProps {
-  onSubmit: (data: { title: string; description: string }) => void
+  onSubmit: (data: { title: string; description: string; goalId?: string | null }) => void
   onUpdate?: (id: string, data: { title: string; description: string; goalId?: string | null }) => Promise<boolean>
   editTask?: EditTask | null
   onEditClose?: () => void
   /** Reference to content column for desktop FAB positioning */
   contentColumnRef?: ContentColumnRef
-  /** Active goals for the goal selector (edit mode only) */
+  /** Active goals for the goal selector */
   goals?: GoalOption[]
 }
 
@@ -229,7 +229,7 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
       }
     } else {
       // Create mode: call original onSubmit
-      onSubmit({ title: trimmedTitle, description: description.trim() })
+      onSubmit({ title: trimmedTitle, description: description.trim(), goalId: selectedGoalId || null })
       handleClose()
     }
   }
@@ -372,8 +372,8 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
               />
             </div>
 
-            {/* Goal selector — edit mode only */}
-            {isEditMode && goals && goals.length > 0 && (
+            {/* Goal selector */}
+            {goals && goals.length > 0 && (
               <div className="space-y-2 mb-6">
                 <Label htmlFor="goal" className="text-sm text-muted-foreground">
                   Goal <span className="text-muted-foreground/60">(optional)</span>

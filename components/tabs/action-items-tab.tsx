@@ -211,6 +211,7 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
         .from('goals')
         .select('id, title, priority')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .order('priority', { ascending: true })
       if (error) throw error
       setGoals((data || []).map((g: any) => ({ id: g.id, title: g.title, priority: g.priority })))
@@ -410,12 +411,14 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
 
   // --- FAB: Add new task ---
 
-  const handleAddTask = async (data: { title: string; description: string }) => {
+  const handleAddTask = async (data: { title: string; description: string; goalId?: string | null }) => {
     if (!user) return
     try {
+      const insert: Record<string, any> = { title: data.title, description: data.description, status: 'active', user_id: user.id, position: 0 }
+      if (data.goalId) insert.goal_id = data.goalId
       const { data: newTask, error } = await supabase
         .from('tasks')
-        .insert({ title: data.title, description: data.description, status: 'active', user_id: user.id, position: 0 })
+        .insert(insert)
         .select()
         .single()
       if (error) throw error

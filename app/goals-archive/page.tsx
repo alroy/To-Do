@@ -106,6 +106,13 @@ export default function GoalsArchivePage() {
             Back to Goals
           </Link>
           <h1 className="text-2xl font-bold text-foreground">Goals Archive</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{
+            goals.length === 0
+              ? "No past goals recorded yet."
+              : goals.length === 1
+                ? "1 successfully executed goal."
+                : `A record of ${goals.length} successfully executed goals.`
+          }</p>
         </header>
 
         {goals.length > 0 ? (

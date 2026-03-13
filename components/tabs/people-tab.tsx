@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
 import { Trash2, Plus, ChevronRight, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CardActionGroup, cardActionDestructiveClass } from "@/components/ui/card-action-group"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -285,16 +286,16 @@ function PersonCard({ person, onClick, onDelete }: { person: Person; onClick: ()
         )}
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
+      <CardActionGroup>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          className={cardActionDestructiveClass}
           aria-label={`Delete ${person.name}`}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-5 w-5" />
         </button>
-        <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-      </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+      </CardActionGroup>
     </div>
   )
 }

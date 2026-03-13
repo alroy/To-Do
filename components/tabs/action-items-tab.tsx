@@ -10,6 +10,7 @@ import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import { prepareTaskForListView, detectSlackTask } from "@/lib/slack/text-utils"
 import { StickyHeader } from "@/components/sticky-header"
+import { CardActionGroup, cardActionMutedClass, cardActionDestructiveClass } from "@/components/ui/card-action-group"
 
 /** Strip "Source: https://..." from text — handles trailing, inline, and newline-prefixed */
 function stripSourceSuffix(text: string): string {
@@ -854,7 +855,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
         </div>
 
         {/* Action buttons */}
-        <div className="flex shrink-0 items-center gap-3 relative mt-[3px]">
+        <CardActionGroup>
           {/* Snooze button */}
           {!isDone && onSnooze && (
             <button
@@ -867,7 +868,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
                 }
               }}
               className={cn(
-                "shrink-0 flex items-center justify-center w-11 h-11 rounded-md text-muted-foreground/50 hover:text-primary hover:opacity-100 transition-[color,opacity] opacity-50 sm:opacity-0 sm:group-hover:opacity-50 sm:group-hover:hover:opacity-100",
+                cardActionMutedClass,
                 showSnoozeMenu && "sm:!opacity-100"
               )}
               aria-label="Snooze"
@@ -887,7 +888,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
           {onDelete && !confirmingDelete && (
             <button
               onClick={handleDeleteClick}
-              className="shrink-0 flex items-center justify-center w-11 h-11 rounded-md text-muted-foreground/50 hover:text-destructive hover:opacity-100 transition-[color,opacity] opacity-50 sm:opacity-0 sm:group-hover:opacity-50 sm:group-hover:hover:opacity-100"
+              className={cardActionDestructiveClass}
               aria-label="Delete"
             >
               <Trash2 className="h-5 w-5" />
@@ -902,7 +903,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
               Delete?
             </button>
           )}
-        </div>
+        </CardActionGroup>
       </div>
     </div>
   )

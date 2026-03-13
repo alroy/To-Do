@@ -8,6 +8,7 @@ import { Target, Trash2, Pencil, Plus, X, FileUp, Archive } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { CardActionGroup, cardActionMutedClass, cardActionDestructiveClass } from "@/components/ui/card-action-group"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -327,13 +328,13 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
             id={`goal-${goal.id}`}
             checked={isCompleted}
             onCheckedChange={() => onArchive()}
-            className="mt-0.5 shrink-0"
+            className="mt-[3px] shrink-0"
           />
         </div>
 
         {/* Priority badge */}
         <span className={cn(
-          "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+          "mt-[3px] shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
           PRIORITY_COLORS[goal.priority]
         )}>
           {PRIORITY_LABELS[goal.priority]}
@@ -357,21 +358,21 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        <CardActionGroup>
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground transition-colors"
+            className={cardActionMutedClass}
             aria-label="Edit goal"
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-5 w-5" />
           </button>
           {!confirmingDelete && (
             <button
               onClick={handleDeleteClick}
-              className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+              className={cardActionDestructiveClass}
               aria-label="Delete goal"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-5 w-5" />
             </button>
           )}
           {confirmingDelete && (
@@ -383,7 +384,7 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
               Delete?
             </button>
           )}
-        </div>
+        </CardActionGroup>
       </div>
 
       {/* Expanded details */}

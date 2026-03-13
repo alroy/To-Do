@@ -596,6 +596,10 @@ function GoalFormModal({ goal, onSubmit, onClose }: {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-background rounded-lg shadow-xl p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground mb-2">{goal ? "Edit Goal" : "Create a Goal"}</h2>
+            <p className="text-sm text-muted-foreground">Define a new priority for the week.</p>
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">

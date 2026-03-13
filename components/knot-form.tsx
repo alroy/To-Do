@@ -329,6 +329,10 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-background rounded-lg shadow-xl p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground mb-2">{isEditMode ? "Edit Item" : "Add to Inbox"}</h2>
+            <p className="text-sm text-muted-foreground">Manually capture a new action item or task.</p>
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="space-y-2 mb-5">
               <Label htmlFor="title" className="text-sm text-muted-foreground">
@@ -410,7 +414,7 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
                 className="w-full sm:w-auto px-5 h-9 font-medium active:scale-[0.98] transition-transform duration-75"
                 style={{ touchAction: "manipulation" }}
               >
-                {isSubmitting ? "Saving..." : isEditMode ? "Save changes" : "Tie Knot"}
+                {isSubmitting ? "Saving..." : isEditMode ? "Save changes" : "Add to Inbox"}
               </Button>
               <button
                 type="button"

@@ -391,7 +391,7 @@ export function KnotForm({ onSubmit, onUpdate, editTask, onEditClose, contentCol
                   value={selectedGoalId}
                   onChange={(e) => setSelectedGoalId(e.target.value)}
                   disabled={isDisabled || (!hasActiveGoals && !!completedGoal)}
-                  className={`flex h-10 w-full rounded-md border border-border/60 bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring${isDisabled || (!hasActiveGoals && !!completedGoal) ? ' opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex h-10 w-full rounded-md border border-border/60 bg-card pl-3 pr-8 py-2 text-sm text-foreground appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23888%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_10px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring${isDisabled || (!hasActiveGoals && !!completedGoal) ? ' opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <option value="">{!hasActiveGoals && !completedGoal ? "No active goals" : "No goal"}</option>
                   {completedGoal && (

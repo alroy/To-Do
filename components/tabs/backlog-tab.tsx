@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
 import { Trash2, Plus, Check, ListTodo, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CardActionGroup, cardActionMutedClass, cardActionDestructiveClass } from "@/components/ui/card-action-group"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -340,7 +341,7 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
       <button
         onClick={onResolve}
         className={cn(
-          "mt-0.5 shrink-0 rounded-full w-5 h-5 border-2 flex items-center justify-center transition-colors",
+          "mt-[3px] shrink-0 rounded-full w-5 h-5 border-2 flex items-center justify-center transition-colors",
           isResolved
             ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/30 hover:border-primary"
@@ -382,21 +383,21 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
       </div>
 
       {/* Action buttons */}
-      <div className="flex shrink-0 items-center gap-0.5 relative">
+      <CardActionGroup>
         <button
           onClick={(e) => { e.stopPropagation(); onMoveToTasks() }}
-          className="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-primary transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          className={cardActionMutedClass}
           aria-label={`Move ${item.title} to tasks`}
         >
-          <ListTodo className="h-4 w-4" />
+          <ListTodo className="h-5 w-5" />
         </button>
         {!confirmingDelete && (
           <button
             onClick={handleDeleteClick}
-            className="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            className={cardActionDestructiveClass}
             aria-label={`Delete ${item.title}`}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-5 w-5" />
           </button>
         )}
         {confirmingDelete && (
@@ -408,8 +409,7 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
             Delete?
           </button>
         )}
-
-      </div>
+      </CardActionGroup>
     </div>
   )
 }

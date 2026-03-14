@@ -47,6 +47,9 @@ export interface BacklogItem {
   createdAt?: string
   resolvedAt?: string | null
   snoozedUntil?: string | null
+  sourceType?: string | null
+  goalId?: string | null
+  originalCreatedAt?: string | null
 }
 
 export interface UserProfile {

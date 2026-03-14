@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   const userId = user.id
 
-  // Fetch all tasks for this user (active + completed, not from backlog)
+  // Fetch all tasks for this user (active + completed still in tasks table)
   const { data: tasks, error: tasksError } = await supabase
     .from('tasks')
     .select('id, title, status, source_type, goal_id, created_at, completed_at')
@@ -51,6 +51,18 @@ export async function GET(request: NextRequest) {
 
   if (tasksError) {
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+  }
+
+  // Fetch resolved backlog items (completed tasks that were moved from tasks table)
+  const { data: resolvedBacklog, error: backlogError } = await supabase
+    .from('backlog')
+    .select('id, title, status, source_type, goal_id, created_at, resolved_at, original_created_at')
+    .eq('user_id', userId)
+    .eq('status', 'resolved')
+    .eq('category', 'action')
+
+  if (backlogError) {
+    return NextResponse.json({ error: 'Failed to fetch resolved tasks' }, { status: 500 })
   }
 
   // Fetch goals for current week (created this week or active)
@@ -64,7 +76,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 })
   }
 
-  const allTasks = tasks || []
+  // Merge active tasks with resolved backlog items into a unified list
+  const activeTasks = (tasks || []).map(t => ({
+    id: t.id,
+    title: t.title,
+    status: t.status as string,
+    source_type: t.source_type,
+    goal_id: t.goal_id,
+    created_at: t.created_at,
+    completed_at: t.completed_at,
+  }))
+
+  const completedFromBacklog = (resolvedBacklog || []).map(b => ({
+    id: b.id,
+    title: b.title,
+    status: 'completed' as string,
+    source_type: b.source_type || null,
+    goal_id: b.goal_id || null,
+    created_at: b.original_created_at || b.created_at,
+    completed_at: b.resolved_at,
+  }))
+
+  const allTasks = [...activeTasks, ...completedFromBacklog]
   const allGoals = goals || []
 
   // --- Summary Metrics ---

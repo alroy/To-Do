@@ -233,6 +233,9 @@ export function TasksTab({ contentColumnRef }: TasksTabProps) {
           resolved_at: new Date().toISOString(),
           user_id: user.id,
           position: 0,
+          source_type: knot.sourceType || null,
+          goal_id: knot.goalId || null,
+          original_created_at: knot.createdAt || null,
         })
         if (insertError) throw insertError
 

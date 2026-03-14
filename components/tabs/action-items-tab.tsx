@@ -339,6 +339,9 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
         resolved_at: new Date().toISOString(),
         user_id: user.id,
         position: 0,
+        source_type: item.sourceType || null,
+        goal_id: item.goalId || null,
+        original_created_at: item.createdAt || null,
       })
       if (insertError) throw insertError
 

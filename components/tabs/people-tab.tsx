@@ -546,7 +546,7 @@ function PersonFormModal({ person, onSubmit, onClose }: {
                     <button key={loc} type="button" onClick={() => setLocation(location === loc ? null : loc)}
                       className={cn(
                         "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",
-                        location === loc ? "text-primary bg-primary/10" : "bg-accent text-muted-foreground"
+                        location === loc ? "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950" : "bg-accent text-muted-foreground"
                       )}>
                       {loc}
                     </button>

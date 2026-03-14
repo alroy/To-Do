@@ -10,8 +10,8 @@ import { CardActionGroup, cardActionDestructiveClass } from "@/components/ui/car
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import type { Person } from "@/lib/chief-of-staff-types"
-import { RELATIONSHIP_LABELS, RELATIONSHIP_COLORS } from "@/lib/chief-of-staff-types"
+import type { Person, PersonLocation } from "@/lib/chief-of-staff-types"
+import { RELATIONSHIP_LABELS, RELATIONSHIP_COLORS, LOCATION_OPTIONS } from "@/lib/chief-of-staff-types"
 import { StickyHeader } from "@/components/sticky-header"
 
 interface PeopleTabProps {
@@ -64,6 +64,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
         communicationStyle: p.communication_style || '',
         currentFocus: p.current_focus || '',
         risksConcerns: p.risks_concerns || '',
+        location: p.location || null,
         position: p.position,
         createdAt: p.created_at,
       })))
@@ -80,6 +81,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
       const { error } = await supabase.from('people').insert({
         name: data.name,
         role: data.role,
+        location: data.location,
         relationship: data.relationship,
         context: data.context,
         strengths: data.strengths,
@@ -103,6 +105,7 @@ export function PeopleTab({ contentColumnRef }: PeopleTabProps) {
       const { error } = await supabase.from('people').update({
         name: data.name,
         role: data.role,
+        location: data.location,
         relationship: data.relationship,
         context: data.context,
         strengths: data.strengths,
@@ -286,7 +289,11 @@ function PersonCard({ person, onClick, onDelete }: { person: Person; onClick: ()
 
       <div className="min-w-0 flex-1">
         <span className="block text-base font-semibold text-foreground">{person.name}</span>
-        {person.role && <span className="block text-xs text-muted-foreground">{person.role}</span>}
+        {(person.role || person.location) && (
+          <span className="block text-xs text-muted-foreground">
+            {[person.role, person.location].filter(Boolean).join(' · ')}
+          </span>
+        )}
         {person.currentFocus && (
           <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{person.currentFocus}</p>
         )}
@@ -336,7 +343,9 @@ function PersonDetail({ person, onBack, onEdit, onDelete }: {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-foreground">{person.name}</h1>
-          <p className="text-sm text-muted-foreground">{person.role}</p>
+          <p className="text-sm text-muted-foreground">
+            {[person.role, person.location].filter(Boolean).join(' · ')}
+          </p>
           <span className={cn(
             "inline-block mt-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
             RELATIONSHIP_COLORS[person.relationship]
@@ -453,6 +462,7 @@ function DeleteConfirmModal({ personName, onConfirm, onClose }: {
 interface PersonFormData {
   name: string
   role: string
+  location: PersonLocation | null
   relationship: 'manager' | 'team' | 'report' | 'stakeholder'
   context: string
   strengths: string
@@ -470,6 +480,7 @@ function PersonFormModal({ person, onSubmit, onClose }: {
 }) {
   const [name, setName] = useState(person?.name || '')
   const [role, setRole] = useState(person?.role || '')
+  const [location, setLocation] = useState<PersonLocation | null>(person?.location || null)
   const [relationship, setRelationship] = useState<'manager' | 'team' | 'report' | 'stakeholder'>(person?.relationship || 'stakeholder')
   const [context, setContext] = useState(person?.context || '')
   const [strengths, setStrengths] = useState(person?.strengths || '')
@@ -489,7 +500,7 @@ function PersonFormModal({ person, onSubmit, onClose }: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) { setError('Please add a name'); return }
-    onSubmit({ name: name.trim(), role: role.trim(), relationship, context: context.trim(), strengths: strengths.trim(), growthAreas: growthAreas.trim(), motivations: motivations.trim(), communicationStyle: communicationStyle.trim(), currentFocus: currentFocus.trim(), risksConcerns: risksConcerns.trim() })
+    onSubmit({ name: name.trim(), role: role.trim(), location, relationship, context: context.trim(), strengths: strengths.trim(), growthAreas: growthAreas.trim(), motivations: motivations.trim(), communicationStyle: communicationStyle.trim(), currentFocus: currentFocus.trim(), risksConcerns: risksConcerns.trim() })
   }
 
   const fixedStyle: React.CSSProperties = {
@@ -526,6 +537,21 @@ function PersonFormModal({ person, onSubmit, onClose }: {
                 <Label htmlFor="person-role" className="text-sm text-muted-foreground">Role / Title</Label>
                 <Input id="person-role" value={role} onChange={(e) => setRole(e.target.value)}
                   placeholder="e.g. VP Engineering" className="h-10 bg-card border-border/60 shadow-none" />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Location <span className="text-muted-foreground/60">(optional)</span></Label>
+                <div className="flex flex-wrap" style={{ gap: '8px' }}>
+                  {LOCATION_OPTIONS.map((loc) => (
+                    <button key={loc} type="button" onClick={() => setLocation(location === loc ? null : loc)}
+                      className={cn(
+                        "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",
+                        location === loc ? "text-primary bg-primary/10" : "bg-accent text-muted-foreground"
+                      )}>
+                      {loc}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">

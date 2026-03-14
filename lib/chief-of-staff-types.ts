@@ -16,10 +16,13 @@ export interface Goal {
   completedAt?: string | null
 }
 
+export type PersonLocation = 'Tel Aviv' | 'London' | 'New York' | 'Vancouver'
+
 export interface Person {
   id: string
   name: string
   role: string
+  location: PersonLocation | null
   relationship: 'manager' | 'team' | 'report' | 'stakeholder'
   context: string
   strengths: string
@@ -31,6 +34,8 @@ export interface Person {
   position: number
   createdAt?: string
 }
+
+export const LOCATION_OPTIONS: PersonLocation[] = ['Tel Aviv', 'London', 'New York', 'Vancouver']
 
 export interface BacklogItem {
   id: string

@@ -25,7 +25,7 @@ function getAllowedEmails(): string[] {
 
 function isEmailAllowed(email: string): boolean {
   const allowed = getAllowedEmails()
-  if (allowed.length === 0) return false
+  if (allowed.length === 0) return true
   return allowed.includes(email.toLowerCase())
 }
 

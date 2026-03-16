@@ -24,7 +24,6 @@ export function MondaySettings() {
   const [disconnecting, setDisconnecting] = useState(false)
   const [boardId, setBoardId] = useState("")
   const [error, setError] = useState("")
-  const [featureAvailable, setFeatureAvailable] = useState(true)
 
   const supabase = createClient()
 
@@ -40,16 +39,13 @@ export function MondaySettings() {
           .maybeSingle()
 
         if (error) {
-          if (error.code === "42P01" || error.message.includes("does not exist")) {
-            setFeatureAvailable(false)
-          } else {
-            console.error("Error fetching Monday connection:", error)
-          }
+          // Table missing or RLS — treat as "no connection yet", still show UI
+          console.warn("Monday connection fetch:", error.message)
         } else {
           setConnection(data)
         }
-      } catch {
-        setFeatureAvailable(false)
+      } catch (err) {
+        console.warn("Monday connection fetch failed:", err)
       } finally {
         setLoading(false)
       }
@@ -104,7 +100,6 @@ export function MondaySettings() {
         .upsert(
           {
             user_id: user.id,
-            api_key: "shared",
             board_id: boardId.trim(),
             updated_at: new Date().toISOString(),
           },
@@ -148,21 +143,12 @@ export function MondaySettings() {
     }
   }
 
-  if (!featureAvailable) return null
-
   return (
     <>
       <div className="flex items-center gap-3 p-3 rounded-lg bg-accent">
         {/* Monday.com Icon */}
         <div className="w-8 h-8 flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6" cy="16" r="2.5" fill="oklch(0.65 0.15 25)" />
-            <circle cx="12" cy="10" r="2.5" fill="oklch(0.70 0.15 80)" />
-            <circle cx="18" cy="14" r="2.5" fill="oklch(0.65 0.12 150)" />
-            <line x1="6" y1="6" x2="6" y2="13.5" stroke="oklch(0.65 0.15 25)" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="12" y1="6" x2="12" y2="7.5" stroke="oklch(0.70 0.15 80)" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="18" y1="6" x2="18" y2="11.5" stroke="oklch(0.65 0.12 150)" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
+          <img src="/monday-icon.svg" alt="" className="w-6 h-6" aria-hidden="true" />
         </div>
 
         <div className="flex-1 min-w-0">

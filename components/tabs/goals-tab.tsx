@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime, groupByPriority } from "@/lib/utils"
-import { Target, Trash2, Pencil, Plus, X, FileUp, Archive, BarChart3 } from "lucide-react"
+import { Target, Trash2, Pencil, LayoutGrid, X, FileUp, Archive, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -550,10 +550,11 @@ function SpeedDialFAB({ onCreateGoal, onUploadGoals, contentColumnRef }: {
           aria-label={isOpen ? "Close menu" : "Add goal"}
           aria-expanded={isOpen}
         >
-          <Plus className={cn(
-            "h-6 w-6 md:h-5 md:w-5 transition-transform duration-200",
-            isOpen && "rotate-45"
-          )} />
+          {isOpen ? (
+            <X className="h-6 w-6 md:h-5 md:w-5 transition-transform duration-200" />
+          ) : (
+            <LayoutGrid className="h-6 w-6 md:h-5 md:w-5 transition-transform duration-200" />
+          )}
         </Button>
       </div>
     </>

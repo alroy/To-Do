@@ -18,7 +18,7 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, isAdmin } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingSection, setEditingSection] = useState<string | null>(null)
@@ -301,6 +301,16 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
       <div className="border-t border-border mt-8 pt-8">
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Settings</h3>
         <MondaySettings />
+
+        {/* Admin link */}
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="mt-6 block text-sm font-medium text-foreground py-3 px-4 rounded-lg hover:bg-accent active:bg-accent-hover transition-colors"
+          >
+            User approvals
+          </a>
+        )}
 
         {/* Sign Out */}
         <button

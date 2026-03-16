@@ -278,7 +278,7 @@ export function BacklogTab({ contentColumnRef, isActive }: BacklogTabProps) {
           {resolvedItems.length > 0 && (
             <div className={openItems.length > 0 ? "mt-8" : ""}>
               <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-                Resolved ({resolvedItems.length})
+                Completed ({resolvedItems.length})
               </h2>
               <div className="flex flex-col gap-2">
                 {resolvedItems.map((item) => (
@@ -339,7 +339,7 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!isResolved && !confirmingDelete) {
+    if (!confirmingDelete) {
       setConfirmingDelete(true)
       return
     }
@@ -357,16 +357,16 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
         isMovingToTasks && "animate-out fade-out slide-out-to-left duration-300 fill-mode-forwards",
       )}
     >
-      {/* Resolve button */}
+      {/* Checkbox: resolve for open items, restore to Inbox for resolved items */}
       <button
-        onClick={onResolve}
+        onClick={isResolved ? onMoveToTasks : onResolve}
         className={cn(
           "mt-[3px] shrink-0 rounded-full w-5 h-5 border-2 flex items-center justify-center transition-colors",
           isResolved
             ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/30 hover:border-primary"
         )}
-        aria-label={isResolved ? "Reopen" : "Resolve"}
+        aria-label={isResolved ? "Restore to Inbox" : "Resolve"}
       >
         {isResolved && <Check className="h-3 w-3" />}
       </button>
@@ -404,13 +404,16 @@ function BacklogCard({ item, onEdit, onDelete, onResolve, onMoveToTasks, isMovin
 
       {/* Action buttons */}
       <CardActionGroup>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMoveToTasks() }}
-          className={cardActionMutedClass}
-          aria-label={`Move ${item.title} to tasks`}
-        >
-          <ListTodo className="h-5 w-5" />
-        </button>
+        {/* Move to tasks — only for open items (resolved items use checkbox to restore) */}
+        {!isResolved && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveToTasks() }}
+            className={cardActionMutedClass}
+            aria-label={`Move ${item.title} to tasks`}
+          >
+            <ListTodo className="h-5 w-5" />
+          </button>
+        )}
         {!confirmingDelete && (
           <button
             onClick={handleDeleteClick}

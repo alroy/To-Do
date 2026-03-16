@@ -4,13 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, Trash2, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
+import { Check, Target, MessageSquare, Video, RefreshCw, Clock, ClipboardList } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
 import { prepareTaskForListView, detectSlackTask } from "@/lib/slack/text-utils"
 import { StickyHeader } from "@/components/sticky-header"
-import { CardActionGroup, cardActionMutedClass, cardActionDestructiveClass } from "@/components/ui/card-action-group"
+import { CardActionGroup, cardActionMutedClass } from "@/components/ui/card-action-group"
 
 /** Strip "Source: https://..." from text — handles trailing, inline, and newline-prefixed */
 function stripSourceSuffix(text: string): string {
@@ -487,6 +487,67 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
     else handleActionItemDelete(id)
   }
 
+  // --- Convert to Goal ---
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToastMessage(null), 3000)
+  }
+
+  /** Get the upcoming Friday (or today if already Friday) */
+  const getUpcomingFriday = () => {
+    const d = new Date()
+    const day = d.getDay() // 0=Sun, 5=Fri
+    const diff = day <= 5 ? 5 - day : 5 + 7 - day
+    d.setDate(d.getDate() + (diff === 0 ? 0 : diff))
+    return d.toISOString().split('T')[0] // YYYY-MM-DD
+  }
+
+  const handleConvertToGoal = async (id: string, origin: InboxOrigin) => {
+    const item = items.find(i => i.id === id)
+    if (!item || !user) return
+
+    // Animate out
+    setExitingId(id)
+
+    setTimeout(async () => {
+      setExitingId(null)
+      setItems(prev => prev.filter(i => i.id !== id))
+
+      try {
+        // Create goal with mapped data
+        const { error: goalError } = await supabase.from('goals').insert({
+          title: item.title,
+          description: item.description || '',
+          priority: 2, // P1
+          deadline: getUpcomingFriday(),
+          risks: '',
+          user_id: user.id,
+          position: 0,
+        })
+        if (goalError) throw goalError
+
+        // Delete original item from its source table
+        if (origin === 'task') {
+          const { error } = await supabase.from('tasks').delete().eq('id', id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase.from('action_items').delete().eq('id', id)
+          if (error) throw error
+        }
+
+        showToast('Converted to P1 Goal.')
+      } catch (error) {
+        console.error('Error converting to goal:', error)
+        loadAllItems()
+      }
+    }, 300)
+  }
+
   // --- FAB: Add new task ---
 
   const handleAddTask = async (data: { title: string; description: string; goalId?: string | null }) => {
@@ -694,8 +755,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
                   ? (until: Date) => handleTaskSnooze(item.id, until)
                   : () => handleActionItemSnooze(item.id)
               }
-              onDelete={() => handleDelete(item.id, item.origin)}
-              requireDeleteConfirm
+              onConvertToGoal={() => handleConvertToGoal(item.id, item.origin)}
               onEdit={() => {
                 if (item.origin === 'task') {
                   setEditTask({
@@ -741,6 +801,13 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
         contentColumnRef={contentColumnRef}
         goals={goals}
       />
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {toastMessage}
+        </div>
+      )}
     </>
   )
 }
@@ -794,7 +861,7 @@ function SnoozeMenu({ onSnooze, onClose }: {
 
 // --- Unified Inbox Card ---
 
-function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReopen, onSnooze, onDelete, onEdit, requireDeleteConfirm }: {
+function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReopen, onSnooze, onConvertToGoal, onEdit }: {
   item: InboxItem
   isExpanded: boolean
   isExiting: boolean
@@ -802,33 +869,44 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
   onDone?: () => void
   onReopen?: () => void
   onSnooze?: ((until: Date) => void) | (() => void)
-  onDelete?: () => void
+  onConvertToGoal?: () => void
   onEdit?: () => void
-  /** When true, first click shows confirm state; second click deletes */
-  requireDeleteConfirm?: boolean
 }) {
   const [showSnoozeMenu, setShowSnoozeMenu] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [isConfirmingConvert, setIsConfirmingConvert] = useState(false)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const convertBtnRef = useRef<HTMLButtonElement>(null)
   const isDone = item.origin === 'action-item'
     ? (item.status === 'done' || item.status === 'dismissed')
     : item.status === 'completed'
 
-  // Auto-clear confirm state after 3s
+  // Auto-reset confirm state after 3s
   useEffect(() => {
-    if (confirmingDelete) {
-      confirmTimer.current = setTimeout(() => setConfirmingDelete(false), 3000)
+    if (isConfirmingConvert) {
+      confirmTimer.current = setTimeout(() => setIsConfirmingConvert(false), 3000)
       return () => { if (confirmTimer.current) clearTimeout(confirmTimer.current) }
     }
-  }, [confirmingDelete])
+  }, [isConfirmingConvert])
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
+  // Blur-reset: clicking outside the convert button resets confirm state
+  useEffect(() => {
+    if (!isConfirmingConvert) return
+    const handler = (e: MouseEvent) => {
+      if (convertBtnRef.current && !convertBtnRef.current.contains(e.target as Node)) {
+        setIsConfirmingConvert(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [isConfirmingConvert])
+
+  const handleConvertClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (requireDeleteConfirm && !confirmingDelete) {
-      setConfirmingDelete(true)
+    if (!isConfirmingConvert) {
+      setIsConfirmingConvert(true)
       return
     }
-    onDelete?.()
+    onConvertToGoal?.()
   }
 
   return (
@@ -929,23 +1007,24 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
             />
           )}
 
-          {/* Delete button */}
-          {onDelete && !confirmingDelete && (
+          {/* Convert to Goal button */}
+          {onConvertToGoal && !isConfirmingConvert && (
             <button
-              onClick={handleDeleteClick}
-              className={cardActionDestructiveClass}
-              aria-label="Delete"
+              onClick={handleConvertClick}
+              className={cardActionMutedClass}
+              aria-label="Convert to goal"
             >
-              <Trash2 className="h-5 w-5" />
+              <Target className="h-5 w-5" />
             </button>
           )}
-          {onDelete && confirmingDelete && (
+          {onConvertToGoal && isConfirmingConvert && (
             <button
-              onClick={handleDeleteClick}
-              className="shrink-0 px-2 py-1 rounded-md text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
-              aria-label="Confirm delete"
+              ref={convertBtnRef}
+              onClick={handleConvertClick}
+              className="shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+              aria-label="Confirm convert to goal"
             >
-              Delete?
+              Create Goal?
             </button>
           )}
         </CardActionGroup>

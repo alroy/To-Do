@@ -15,9 +15,10 @@ import { StickyHeader } from "@/components/sticky-header"
 
 interface BacklogTabProps {
   contentColumnRef: React.RefObject<HTMLDivElement | null>
+  isActive?: boolean
 }
 
-export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
+export function BacklogTab({ contentColumnRef, isActive }: BacklogTabProps) {
   const { user } = useAuth()
   const [items, setItems] = useState<BacklogItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +30,11 @@ export function BacklogTab({ contentColumnRef }: BacklogTabProps) {
   useEffect(() => {
     if (user) loadItems()
   }, [user])
+
+  // Reload when tab becomes active (catches snooze/unsnooze changes from other tabs)
+  useEffect(() => {
+    if (isActive && user) loadItems()
+  }, [isActive])
 
   useEffect(() => {
     if (!user) return

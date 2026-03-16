@@ -72,9 +72,10 @@ interface InboxItem {
 
 interface ActionItemsTabProps {
   contentColumnRef: React.RefObject<HTMLDivElement | null>
+  isActive?: boolean
 }
 
-export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
+export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabProps) {
   const { user } = useAuth()
   const [items, setItems] = useState<InboxItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,6 +96,11 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       loadGoals()
     }
   }, [user])
+
+  // Reload when tab becomes active (catches unsnooze/move-to-tasks changes from other tabs)
+  useEffect(() => {
+    if (isActive && user) loadAllItems()
+  }, [isActive])
 
   // Reload goals when editing starts to include assigned (possibly completed) goal
   useEffect(() => {

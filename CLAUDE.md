@@ -34,6 +34,7 @@ Table: `tasks`
 **Required migrations:**
 - `supabase-migration-cross-tab-sync.sql` - Position column and REPLICA IDENTITY FULL
 - `supabase-migration-task-provenance.sql` - Source tracking columns and ingest log table
+- `supabase-migration-user-approval.sql` - User approval column and auto-approve trigger
 
 ## Design System
 
@@ -73,13 +74,29 @@ Floating Action Button (FAB) with modal form:
 - Closes on submit/cancel or backdrop click
 - Custom KnotIcon SVG component
 
-### `/components/hamburger-menu.tsx`
-Hamburger menu with slide-out drawer:
-- Hamburger icon button (3 lines) at top-right
-- Opens slide-out drawer from right side
-- Contains user avatar, email, and "Sign out" button
-- Semi-transparent backdrop overlay
-- Uses `useAuth()` hook for user data and sign out
+### `/components/auth/sign-in.tsx`
+Google OAuth sign-in page:
+- Single "Sign in with Google" button
+- Restricted to @zencity.io domain accounts (+ admin gmail)
+- Uses `signInWithGoogle()` from auth context
+
+### `/components/auth/pending-approval.tsx`
+Shown when a user has signed in but has not been approved by admin:
+- Shows user avatar, email, and "Pending Approval" message
+- "Check again" button to re-fetch approval status
+- "Sign out" button
+
+### `/components/auth/domain-not-allowed.tsx`
+Shown when a user signs in with a non-allowed email domain:
+- Explains access is restricted to Zencity team members
+- "Sign out" button to try a different account
+
+### `/app/admin/page.tsx`
+Admin-only page for user approvals:
+- Lists pending (unapproved) users with avatar, email, name, signup date
+- "Approve" button per user with optimistic update
+- Only accessible to super admin (gil.alroy@gmail.com)
+- Linked from Profile tab settings section
 
 ### `/components/sortable-knot-list.tsx`
 Drag-and-drop list using @dnd-kit:
@@ -167,6 +184,8 @@ After profile setup, new users see a second step to connect their Monday board:
 ### Environment Variables
 ```
 MONDAY_API_KEY=your-shared-monday-api-key   # Required for Monday.com sync
+ADMIN_EMAIL=gil.alroy@gmail.com             # Server-side: admin email for API routes
+NEXT_PUBLIC_ADMIN_EMAIL=gil.alroy@gmail.com # Client-side: admin check in auth context
 ```
 
 ## Current State
@@ -197,6 +216,11 @@ MONDAY_API_KEY=your-shared-monday-api-key   # Required for Monday.com sync
 - ✅ Monday.com integration with shared API key (env var) and per-user Board ID
 - ✅ Onboarding flow: profile setup → Monday board connection
 - ✅ Morning Brief removed (no longer part of UI)
+- ✅ Google OAuth login (replaces email/password and magic link)
+- ✅ Domain restriction: only @zencity.io and admin gmail allowed
+- ✅ User approval system: new users require admin approval
+- ✅ Admin page at /admin for user approvals (super admin only)
+- ✅ Auto-approval for super admin (gil.alroy@gmail.com) via DB trigger
 
 ## Animations & Transitions
 

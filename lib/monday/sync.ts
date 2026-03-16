@@ -39,7 +39,7 @@ interface MondayResponse {
 export interface ParsedActionItem {
   mondayItemId: string
   actionItem: string
-  source: 'slack' | 'granola'
+  source: 'slack' | 'granola' | 'gmail'
   sourceChannel: string | null
   messageFrom: string | null
   messageLink: string | null
@@ -96,8 +96,9 @@ function getLongText(item: MondayItem, columnId: string): string | null {
   }
 }
 
-function parseSource(text: string | null): 'slack' | 'granola' {
+function parseSource(text: string | null): 'slack' | 'granola' | 'gmail' {
   if (text?.toLowerCase() === 'granola') return 'granola'
+  if (text?.toLowerCase() === 'gmail') return 'gmail'
   return 'slack'
 }
 

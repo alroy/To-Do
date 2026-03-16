@@ -804,7 +804,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
 
       {/* Toast notification */}
       {toastMessage && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
           {toastMessage}
         </div>
       )}
@@ -1008,22 +1008,23 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
           )}
 
           {/* Convert to Goal button */}
-          {onConvertToGoal && (
+          {onConvertToGoal && !isConfirmingConvert && (
+            <button
+              onClick={handleConvertClick}
+              className={cardActionMutedClass}
+              aria-label="Convert to goal"
+            >
+              <Target className="h-5 w-5" />
+            </button>
+          )}
+          {onConvertToGoal && isConfirmingConvert && (
             <button
               ref={convertBtnRef}
               onClick={handleConvertClick}
-              className={cn(
-                "shrink-0 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors",
-                !isConfirmingConvert && cardActionMutedClass,
-                isConfirmingConvert && "text-primary sm:opacity-100 !opacity-100"
-              )}
-              aria-label={isConfirmingConvert ? "Confirm convert to goal" : "Convert to goal"}
+              className="shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+              aria-label="Confirm convert to goal"
             >
-              {isConfirmingConvert ? (
-                <Check className="h-5 w-5" />
-              ) : (
-                <Target className="h-5 w-5" />
-              )}
+              Create Goal?
             </button>
           )}
         </CardActionGroup>

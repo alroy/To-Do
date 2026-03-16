@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Check, FileText, Camera, Plus } from "lucide-react"
+import { Pencil, Check, FileText, Camera, Sparkles } from "lucide-react"
 import { MondaySettings } from "@/components/settings/monday-settings"
 import { cn } from "@/lib/utils"
 import type { UserProfile, PersonLocation } from "@/lib/chief-of-staff-types"
@@ -305,7 +305,7 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
         {/* Sign Out */}
         <button
           onClick={() => signOut()}
-          className="mt-6 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
+          className="mt-6 block text-sm font-medium text-red-600 py-3 px-4 rounded-lg hover:bg-red-50 active:bg-red-100 dark:hover:bg-red-950/30 dark:active:bg-red-950/50 transition-colors"
         >
           Sign out
         </button>
@@ -521,7 +521,7 @@ function ProfileFAB({ onImportTranscript, contentColumnRef }: {
           aria-label={isOpen ? "Close menu" : "Profile actions"}
           aria-expanded={isOpen}
         >
-          <Plus className={cn(
+          <Sparkles className={cn(
             "h-6 w-6 md:h-5 md:w-5 transition-transform duration-200",
             isOpen && "rotate-45"
           )} />

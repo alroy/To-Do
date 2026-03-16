@@ -19,6 +19,16 @@ function stripSourceSuffix(text: string): string {
     .trim()
 }
 
+/** Detect Gmail from message link URL */
+function isGmailLink(url: string | null): boolean {
+  if (!url) return false
+  try {
+    return new URL(url).hostname === 'mail.google.com'
+  } catch {
+    return url.includes('mail.google.com')
+  }
+}
+
 /** Normalize a Slack permalink for dedup comparison — strips varying query params */
 function normalizeSlackUrl(url: string): string {
   try {
@@ -151,20 +161,27 @@ export function ActionItemsTab({ contentColumnRef }: ActionItemsTabProps) {
       if (actionResult.error) throw actionResult.error
       if (tasksResult.error) throw tasksResult.error
 
-      const actionItems: InboxItem[] = (actionResult.data || []).map((row: any) => ({
-        id: row.id,
-        origin: 'action-item' as const,
-        title: stripSourceSuffix(row.action_item),
-        description: '',
-        source: row.source as 'slack' | 'granola',
-        sourceChannel: row.source_channel,
-        messageFrom: row.message_from,
-        messageLink: row.message_link,
-        createdAt: row.created_at,
-        messageTimestamp: row.message_timestamp,
-        status: row.status,
-        rawContext: row.raw_context,
-      }))
+      const actionItems: InboxItem[] = (actionResult.data || []).map((row: any) => {
+        // Infer gmail from link when DB source column says slack
+        let source: InboxItem['source'] = row.source as 'slack' | 'granola' | 'gmail'
+        if (source === 'slack' && isGmailLink(row.message_link)) {
+          source = 'gmail'
+        }
+        return {
+          id: row.id,
+          origin: 'action-item' as const,
+          title: stripSourceSuffix(row.action_item),
+          description: '',
+          source,
+          sourceChannel: row.source_channel,
+          messageFrom: row.message_from,
+          messageLink: row.message_link,
+          createdAt: row.created_at,
+          messageTimestamp: row.message_timestamp,
+          status: row.status,
+          rawContext: row.raw_context,
+        }
+      })
 
       const taskItems: InboxItem[] = (tasksResult.data || []).map((row: any) => {
         // Determine source for tasks

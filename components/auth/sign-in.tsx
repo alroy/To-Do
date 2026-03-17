@@ -102,8 +102,8 @@ export function SignIn() {
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
           <div className="text-center">
             <h1 className="mb-2 text-3xl font-bold text-foreground">Welcome to ZC Knots</h1>
-            <p className="leading-relaxed text-muted-foreground">
-              Your AI Chief of Staff. Track priorities manually, or let AI extract your action items automatically.
+            <p className="mx-auto max-w-sm leading-relaxed text-gray-500">
+              Your AI-powered to-do list. Track priorities manually, or let AI extract your action items automatically.
             </p>
           </div>
 
@@ -171,7 +171,7 @@ export function SignIn() {
                 </button>
                 <button
                   type="button"
-                  className="mt-2 text-sm font-medium text-primary hover:underline transition-colors"
+                  className="mt-2 text-sm font-medium text-blue-600 hover:underline transition-colors"
                   onClick={() => {
                     setMode('sign-up')
                     setStatus('idle')

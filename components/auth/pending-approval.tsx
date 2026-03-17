@@ -26,17 +26,17 @@ export function PendingApproval() {
 
           <div className="w-full rounded-lg border border-border bg-[#f8f9fa] p-6 dark:bg-accent">
             <h2 className="mb-2 text-lg font-semibold text-foreground">
-              ✨ Prepare your AI Autopilot
+              ✨ Set Up Your AI Autopilot
             </h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              Knots uses Claude Cowork to scan your messages twice a day and extract action items directly to a Monday.com board.
+              Knots pulls your action items directly from a Monday.com Tasks board. To put this on autopilot, we use Claude Cowork to scan your Slack, Gmail, and Granola transcripts and write tasks to that board twice a day.
             </p>
             <ol className="mb-4 list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
               <li>
-                Ensure your Claude Cowork account has the Slack, Granola, Gmail, and Monday.com connectors enabled.
+                Enable the <strong>Slack</strong>, <strong>Granola</strong>, <strong>Gmail</strong>, and <strong>Monday.com</strong> connectors in your Claude Cowork account.
               </li>
               <li>
-                Download the setup prompt and paste it into a new Cowork session.
+                Copy our setup prompt into a new Cowork session. Claude will automatically create your Monday board and schedule the daily scans.
               </li>
             </ol>
             <a

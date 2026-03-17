@@ -1,5 +1,6 @@
 # Knots - To-Do App Project Context
 
+
 ## Project Overview
 This is a Next.js 14 to-do app called "Knots" with Supabase database integration, drag-and-drop functionality, and a refined design system using oklch color space.
 
@@ -352,3 +353,4 @@ Tests include:
 - Slack actionability heuristic scoring
 - LLM JSON schema validation and fallback
 - Task deduplication logic
+# trigger

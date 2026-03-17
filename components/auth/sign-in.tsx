@@ -103,11 +103,7 @@ export function SignIn() {
           <div className="text-center">
             <h1 className="mb-2 text-3xl font-bold text-foreground">Welcome to Knots</h1>
             <p className="text-muted-foreground">
-              {mode === 'sign-up'
-                ? 'Create your account'
-                : mode === 'password'
-                  ? 'Sign in with your email and password'
-                  : 'Enter your email to receive a sign-in link'}
+              Your personal Chief of Staff. Track priorities manually, or let AI extract action items automatically.
             </p>
           </div>
 
@@ -183,6 +179,16 @@ export function SignIn() {
                 </Button>
               </>
             )}
+          </div>
+
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <p className="text-sm text-muted-foreground">Seamlessly integrates with:</p>
+            <div className="flex items-center gap-4">
+              <img src="/slack-svgrepo-com.svg" alt="Slack" className="h-6 w-6 grayscale opacity-60" />
+              <img src="/granola-icon.svg" alt="Granola" className="h-6 w-6 grayscale opacity-60" />
+              <img src="/gmail.svg" alt="Gmail" className="h-6 w-6 grayscale opacity-60" />
+              <img src="/monday-icon.svg" alt="Monday.com" className="h-6 w-6 grayscale opacity-60" />
+            </div>
           </div>
         </div>
       </div>

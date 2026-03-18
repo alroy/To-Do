@@ -159,7 +159,7 @@ export function MondaySettings() {
             <p className="text-xs text-muted-foreground">Loading...</p>
           ) : connection ? (
             <p className="text-xs text-muted-foreground truncate">
-              Board {connection.board_id}
+              Board ID: {connection.board_id}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -173,7 +173,7 @@ export function MondaySettings() {
             <button
               onClick={() => setShowDisconnectModal(true)}
               disabled={disconnecting}
-              className="text-xs font-medium text-destructive border border-destructive/30 rounded-full px-3 py-1 hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              className="bg-red-50 text-red-600 px-4 py-1.5 rounded-md text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
             >
               {disconnecting ? "..." : "Disconnect"}
             </button>

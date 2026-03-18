@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Check, FileText, Camera, Sparkles } from "lucide-react"
+import { Pencil, Check, FileText, Camera, Sparkles, ChevronRight } from "lucide-react"
 import { MondaySettings } from "@/components/settings/monday-settings"
 import { cn } from "@/lib/utils"
 import type { UserProfile, PersonLocation } from "@/lib/chief-of-staff-types"
@@ -304,23 +304,24 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Settings</h3>
         <MondaySettings />
 
-        {/* Admin link */}
-        {isAdmin && (
-          <a
-            href="/admin"
-            className="mt-6 block text-sm font-medium text-foreground py-3 px-4 rounded-lg hover:bg-accent active:bg-accent-hover transition-colors"
+        {/* Account actions */}
+        <div className="bg-slate-100 dark:bg-slate-800/50 rounded-xl overflow-hidden mt-6">
+          {isAdmin && (
+            <a
+              href="/admin"
+              className="flex justify-between items-center w-full p-4 text-slate-800 dark:text-slate-200 font-medium text-sm hover:bg-slate-200/60 dark:hover:bg-slate-700/50 transition-colors border-b border-gray-200/60 dark:border-gray-700/60"
+            >
+              User approvals
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </a>
+          )}
+          <button
+            onClick={() => signOut()}
+            className="flex items-center w-full p-4 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-slate-200/60 dark:hover:bg-slate-700/50 transition-colors"
           >
-            User approvals
-          </a>
-        )}
-
-        {/* Sign Out */}
-        <button
-          onClick={() => signOut()}
-          className="mt-6 block text-sm font-medium text-red-600 py-3 px-4 rounded-lg hover:bg-red-50 active:bg-red-100 dark:hover:bg-red-950/30 dark:active:bg-red-950/50 transition-colors"
-        >
-          Sign out
-        </button>
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* FAB */}

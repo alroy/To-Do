@@ -92,6 +92,16 @@ export default function KnotCard({
       }
     }
 
+    // Priority 0b: Notetaker provenance (from Monday.com board)
+    if (sourceType === 'notetaker' && sourceUrl) {
+      return {
+        hasProvenance: true,
+        sourceType: 'notetaker' as const,
+        permalink: sourceUrl,
+        authorName: undefined,
+      }
+    }
+
     // Priority 1a: Gmail provenance
     if (sourceType === 'gmail' && sourceUrl) {
       return {

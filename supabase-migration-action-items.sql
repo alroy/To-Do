@@ -41,5 +41,10 @@ CREATE POLICY "Service role can insert action items"
   ON action_items FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can delete their own action items" ON action_items;
+CREATE POLICY "Users can delete their own action items"
+  ON action_items FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- 7. Enable realtime for cross-tab sync
 ALTER TABLE action_items REPLICA IDENTITY FULL;

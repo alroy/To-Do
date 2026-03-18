@@ -103,7 +103,6 @@ export function MondaySettings() {
           {
             user_id: user.id,
             board_id: boardId.trim(),
-            updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id" }
         )

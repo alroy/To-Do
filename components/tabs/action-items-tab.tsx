@@ -51,7 +51,7 @@ interface InboxItem {
   title: string
   description: string
   // Source provenance
-  source: 'slack' | 'granola' | 'gmail' | 'manual'
+  source: 'slack' | 'granola' | 'gmail' | 'notetaker' | 'manual'
   sourceChannel: string | null
   messageFrom: string | null
   messageLink: string | null
@@ -169,7 +169,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
 
       const actionItems: InboxItem[] = (actionResult.data || []).map((row: any) => {
         // Infer gmail from link when DB source column says slack
-        let source: InboxItem['source'] = row.source as 'slack' | 'granola' | 'gmail'
+        let source: InboxItem['source'] = row.source as 'slack' | 'granola' | 'gmail' | 'notetaker'
         if (source === 'slack' && isGmailLink(row.message_link)) {
           source = 'gmail'
         }
@@ -191,10 +191,11 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
 
       const taskItems: InboxItem[] = (tasksResult.data || []).map((row: any) => {
         // Determine source for tasks
-        let source: 'slack' | 'granola' | 'gmail' | 'manual' = 'manual'
+        let source: 'slack' | 'granola' | 'gmail' | 'notetaker' | 'manual' = 'manual'
         if (row.source_type === 'slack') source = 'slack'
         else if (row.source_type === 'granola') source = 'granola'
         else if (row.source_type === 'gmail') source = 'gmail'
+        else if (row.source_type === 'notetaker') source = 'notetaker'
         else if (row.metadata?.source?.type === 'slack') source = 'slack'
         else if (row.metadata?.source?.type === 'granola') source = 'granola'
         else if (row.metadata?.source?.type === 'gmail') source = 'gmail'
@@ -1067,7 +1068,9 @@ function InboxMetadataRow({ item }: { item: InboxItem }) {
       ? '/slack-svgrepo-com.svg'
       : item.source === 'gmail'
         ? '/gmail.svg'
-        : '/granola-icon.svg'
+        : item.source === 'notetaker'
+          ? '/monday-icon.svg'
+          : '/granola-icon.svg'
     return (
       <div className="flex items-center gap-1.5 mt-3 flex-wrap">
         <img src={sourceIcon} alt="" className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -1090,7 +1093,7 @@ function InboxMetadataRow({ item }: { item: InboxItem }) {
   }
 
   // Task-origin items from Slack/Granola/Gmail: use ProvenanceRow-style rendering
-  if (item.source === 'slack' || item.source === 'granola' || item.source === 'gmail') {
+  if (item.source === 'slack' || item.source === 'granola' || item.source === 'gmail' || item.source === 'notetaker') {
     // Try to get author name from metadata
     let authorName: string | undefined
     if (isSlackMetadata(item.metadata)) {

@@ -97,20 +97,32 @@ export function MondaySettings() {
     setError("")
 
     try {
-      const { data, error: upsertError } = await supabase
+      // Check if connection already exists
+      const { data: existing } = await supabase
         .from("monday_connections")
-        .upsert(
-          {
-            user_id: user.id,
-            board_id: boardId.trim(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        )
-        .select("id, board_id, created_at")
-        .single()
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
 
-      if (upsertError) throw upsertError
+      let data
+      if (existing) {
+        const { data: updated, error: updateError } = await supabase
+          .from("monday_connections")
+          .update({ board_id: boardId.trim() })
+          .eq("id", existing.id)
+          .select("id, board_id, created_at")
+          .single()
+        if (updateError) throw updateError
+        data = updated
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("monday_connections")
+          .insert({ user_id: user.id, board_id: boardId.trim() })
+          .select("id, board_id, created_at")
+          .single()
+        if (insertError) throw insertError
+        data = inserted
+      }
 
       setConnection(data)
       setShowForm(false)
@@ -159,7 +171,7 @@ export function MondaySettings() {
             <p className="text-xs text-muted-foreground">Loading...</p>
           ) : connection ? (
             <p className="text-xs text-muted-foreground truncate">
-              Board {connection.board_id}
+              Board ID: {connection.board_id}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -173,7 +185,7 @@ export function MondaySettings() {
             <button
               onClick={() => setShowDisconnectModal(true)}
               disabled={disconnecting}
-              className="text-xs font-medium text-destructive border border-destructive/30 rounded-full px-3 py-1 hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              className="bg-red-50 text-red-600 px-4 py-1.5 rounded-md text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
             >
               {disconnecting ? "..." : "Disconnect"}
             </button>

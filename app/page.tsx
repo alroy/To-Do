@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useRef, useEffect, useCallback, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase-browser"
 import { SignIn } from "@/components/auth/sign-in"
@@ -38,7 +38,14 @@ export default function Page() {
 function PageContent() {
   const { user, loading: authLoading, isApproved, isPasswordRecovery, clearPasswordRecovery } = useAuth()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab)
+
+  const handleTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab)
+    const url = tab === 'action-items' ? '/' : `/?tab=${tab}`
+    router.replace(url, { scroll: false })
+  }, [router])
   const contentColumnRef = useRef<HTMLDivElement>(null)
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null)
 
@@ -149,7 +156,7 @@ function PageContent() {
       </div>
 
       {/* Bottom tab bar */}
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
     </main>
   )
 }

@@ -445,6 +445,8 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
           user_id: user.id,
           position: 0,
           snoozed_until: until.toISOString(),
+          source_type: item.sourceType || null,
+          goal_id: item.goalId || null,
           ...(item.createdAt ? { created_at: item.createdAt } : {}),
         })
         if (insertError) throw insertError

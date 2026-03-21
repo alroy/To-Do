@@ -786,7 +786,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
     <>
       <StickyHeader
         title="Inbox"
-        byline={!isSearchActive ? (
+        byline={
           <p>
             {(() => {
               const hour = new Date().getHours()
@@ -801,7 +801,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
               return `${greeting}${firstName ? `, ${firstName}` : ''}. ${contextual}`.trim()
             })()}
           </p>
-        ) : undefined}
+        }
       />
 
       {openItems.length > 0 && (

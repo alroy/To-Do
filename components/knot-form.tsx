@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { useSafariPWAFix } from "@/hooks/use-safari-pwa-fix"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
-import { prepareDescriptionForEdit, detectSlackTask } from "@/lib/slack/text-utils"
-import { ProvenanceRow } from "@/components/ui/slack-badge"
+import { prepareDescriptionForEdit, detectSlackTask } from "@/lib/text-utils"
+import { ProvenanceRow } from "@/components/ui/provenance-row"
 import type { ContentColumnRef } from "@/app/page"
 
 // Type for edit mode task data

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, Target, MessageSquare, Video, RefreshCw, Clock, ClipboardList, Search, ArrowDownNarrowWide, ArrowUpNarrowWide } from "lucide-react"
+import { Check, Target, MessageSquare, Video, RefreshCw, Clock, ClipboardList, Search, ArrowDownNarrowWide, ArrowUpNarrowWide, X } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/slack-badge"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
@@ -89,6 +89,8 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
   const [editTask, setEditTask] = useState<EditTask | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
+  const [searchFocused, setSearchFocused] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const locallyCreatedIds = useRef<Set<string>>(new Set())
   const editTaskRef = useRef<EditTask | null>(null)
@@ -770,6 +772,8 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
     return result
   }, [openItems, searchQuery, sortOrder])
 
+  const isSearchActive = searchFocused || searchQuery.length > 0
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -782,7 +786,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
     <>
       <StickyHeader
         title="Inbox"
-        byline={
+        byline={!isSearchActive ? (
           <p>
             {(() => {
               const hour = new Date().getHours()
@@ -797,7 +801,7 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
               return `${greeting}${firstName ? `, ${firstName}` : ''}. ${contextual}`.trim()
             })()}
           </p>
-        }
+        ) : undefined}
       />
 
       {openItems.length > 0 && (
@@ -805,31 +809,60 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search inbox..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="w-full h-9 pl-9 pr-8 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
             />
-          </div>
-          <button
-            onClick={() => setSortOrder(s => s === 'desc' ? 'asc' : 'desc')}
-            className="shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary transition-colors"
-            aria-label={sortOrder === 'desc' ? 'Sorted newest first' : 'Sorted oldest first'}
-          >
-            {sortOrder === 'desc' ? <ArrowDownNarrowWide className="h-5 w-5" /> : <ArrowUpNarrowWide className="h-5 w-5" />}
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className={cn(
-              "shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary transition-colors",
-              syncing && "animate-spin"
+            {searchQuery.length > 0 && (
+              <button
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setSearchQuery(''); searchInputRef.current?.focus() }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-            aria-label="Sync action items"
-          >
-            <RefreshCw className="h-5 w-5" />
-          </button>
+          </div>
+          {isSearchActive ? (
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => {
+                setSearchQuery('')
+                setSearchFocused(false)
+                searchInputRef.current?.blur()
+              }}
+              className="shrink-0 text-sm font-medium text-muted-foreground hover:text-primary transition-colors px-1"
+            >
+              Cancel
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setSortOrder(s => s === 'desc' ? 'asc' : 'desc')}
+                className="shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary transition-colors"
+                aria-label={sortOrder === 'desc' ? 'Sorted newest first' : 'Sorted oldest first'}
+              >
+                {sortOrder === 'desc' ? <ArrowDownNarrowWide className="h-5 w-5" /> : <ArrowUpNarrowWide className="h-5 w-5" />}
+              </button>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={cn(
+                  "shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary transition-colors",
+                  syncing && "animate-spin"
+                )}
+                aria-label="Sync action items"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -887,8 +920,9 @@ export function ActionItemsTab({ contentColumnRef, isActive }: ActionItemsTabPro
         </div>
       ) : openItems.length > 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Search className="h-10 w-10 text-muted-foreground/30 mb-4" />
-          <p className="text-muted-foreground text-sm">No matching items</p>
+          <img src="/search.svg" alt="" aria-hidden="true" className="w-12 h-12 opacity-50 mb-4 mx-auto" />
+          <p className="text-sm font-medium text-foreground">No matching items</p>
+          <p className="text-sm text-muted-foreground mt-1">Try adjusting your search terms.</p>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center">

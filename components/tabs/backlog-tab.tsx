@@ -602,7 +602,7 @@ function BacklogFormModal({ item, onSubmit, onClose, onRestore }: {
                     style={{ touchAction: "manipulation" }}
                   >
                     <Undo2 className="h-3.5 w-3.5" />
-                    Mark as Incomplete
+                    Back to Inbox
                   </Button>
                 )}
               </div>

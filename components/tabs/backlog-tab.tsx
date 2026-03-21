@@ -598,10 +598,10 @@ function BacklogFormModal({ item, onSubmit, onClose, onRestore }: {
                     type="button"
                     variant="outline"
                     onClick={onRestore}
-                    className="flex-1 sm:flex-none px-5 h-9 font-medium active:scale-[0.98] transition-transform duration-75 gap-1.5"
+                    className="flex-1 sm:flex-none px-5 h-9 font-medium active:scale-[0.98] transition-transform duration-75 gap-1.5 whitespace-nowrap"
                     style={{ touchAction: "manipulation" }}
                   >
-                    <Undo2 className="h-3.5 w-3.5" />
+                    <Undo2 className="h-3.5 w-3.5 shrink-0" />
                     Back to Inbox
                   </Button>
                 )}

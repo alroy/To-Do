@@ -2,7 +2,7 @@
 
 Knots is a task management app built with Next.js and Supabase. It features drag-and-drop reordering, real-time sync across devices, email/password and magic-link authentication, a backlog with snooze, goals tracking, and Monday.com integration for task ingestion.
 
-**Live:** https://v0-knots-taker.vercel.app/
+**Live:** https://app.knots.bot/
 
 ## Tech Stack
 
@@ -16,6 +16,7 @@ Knots is a task management app built with Next.js and Supabase. It features drag
 
 - Node.js 18+
 - A [Supabase](https://supabase.com) project
+- An [Anthropic](https://console.anthropic.com) API key (for transcript parsing)
 - (Optional) A [Monday.com](https://monday.com) account for task ingestion
 
 ## Installation
@@ -49,6 +50,7 @@ Knots is a task management app built with Next.js and Supabase. It features drag
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
    NEXT_PUBLIC_ALLOWED_EMAILS=user1@example.com,user2@example.com
+   ANTHROPIC_API_KEY=your-anthropic-api-key
    ```
 
    For Monday.com integration (optional):

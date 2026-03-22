@@ -65,12 +65,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch resolved tasks' }, { status: 500 })
   }
 
-  // Fetch goals for current week (created this week or active)
+  // Fetch goals: active/at_risk OR completed this week
   const { data: goals, error: goalsError } = await supabase
     .from('goals')
-    .select('id, title, status, created_at')
+    .select('id, title, status, created_at, completed_at')
     .eq('user_id', userId)
-    .in('status', ['active', 'at_risk'])
+    .or(`status.in.(active,at_risk),and(status.eq.completed,completed_at.gte.${currentWeekStart})`)
 
   if (goalsError) {
     return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 })
@@ -152,17 +152,30 @@ export async function GET(request: NextRequest) {
 
   // --- Goal Coverage Panel ---
   const goalCoverage = allGoals.map(g => {
+    const isCompleted = g.status === 'completed'
     const linkedTasks = allTasks.filter(t => t.goal_id === g.id)
-    const linkedTotal = linkedTasks.filter(t => t.status === 'active').length +
-      linkedTasks.filter(t => t.completed_at && isInRange(t.completed_at, currentWeekStart, currentWeekEnd)).length
-    const linkedCompleted = linkedTasks.filter(t =>
-      t.completed_at && isInRange(t.completed_at, currentWeekStart, currentWeekEnd)
-    ).length
+
+    let linkedTotal: number
+    let linkedCompleted: number
+
+    if (isCompleted) {
+      // Completed goal: show as fully done (1/1)
+      linkedTotal = 1
+      linkedCompleted = 1
+    } else {
+      linkedTotal = linkedTasks.filter(t => t.status === 'active').length +
+        linkedTasks.filter(t => t.completed_at && isInRange(t.completed_at, currentWeekStart, currentWeekEnd)).length
+      linkedCompleted = linkedTasks.filter(t =>
+        t.completed_at && isInRange(t.completed_at, currentWeekStart, currentWeekEnd)
+      ).length
+    }
+
     return {
       id: g.id,
       title: g.title,
       linked_total: linkedTotal,
       linked_completed: linkedCompleted,
+      status: g.status as string,
     }
   })
 
@@ -174,7 +187,10 @@ export async function GET(request: NextRequest) {
     (t.source_type === 'slack' || t.source_type === 'granola') ? t.source_type : 'manual'
 
   const goalsMatrix = allGoals.map(g => {
-    const linked = activeTasks.filter(t => t.goal_id === g.id)
+    // For completed goals, include tasks completed this week; for active goals, count active tasks
+    const linked = g.status === 'completed'
+      ? allTasks.filter(t => t.goal_id === g.id && t.completed_at && isInRange(t.completed_at, currentWeekStart, currentWeekEnd))
+      : activeTasks.filter(t => t.goal_id === g.id)
     const counts: Record<SourceKey, number> = { slack: 0, granola: 0, manual: 0 }
     for (const t of linked) counts[getSource(t)]++
     const truncTitle = g.title.length > 22 ? g.title.slice(0, 22) + '\u2026' : g.title
@@ -185,6 +201,7 @@ export async function GET(request: NextRequest) {
       granola: counts.granola,
       manual: counts.manual,
       total: linked.length,
+      status: g.status as string,
     }
   })
 

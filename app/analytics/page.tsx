@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Script from "next/script"
 
@@ -27,6 +27,7 @@ interface GoalCoverageItem {
   title: string
   linked_total: number
   linked_completed: number
+  status: string
 }
 
 interface OriginsGoal {
@@ -36,6 +37,7 @@ interface OriginsGoal {
   granola: number
   manual: number
   total: number
+  status: string
 }
 
 interface OriginsMatrix {
@@ -288,6 +290,13 @@ function VelocityChart({ velocity, chartReady }: { velocity: VelocityWeek[]; cha
 // --- Goal Coverage Panel ---
 
 function GoalCoveragePanel({ coverage, orphanCount }: { coverage: GoalCoverageItem[]; orphanCount: number }) {
+  // Sort: active/at_risk goals first, completed goals at the bottom
+  const sorted = [...coverage].sort((a, b) => {
+    const aCompleted = a.status === 'completed' ? 1 : 0
+    const bCompleted = b.status === 'completed' ? 1 : 0
+    return aCompleted - bCompleted
+  })
+
   return (
     <div className="rounded-lg bg-card p-4">
       <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-4">
@@ -297,7 +306,8 @@ function GoalCoveragePanel({ coverage, orphanCount }: { coverage: GoalCoverageIt
         <p className="text-sm text-muted-foreground">No active goals this week.</p>
       ) : (
         <div className="space-y-3">
-          {coverage.map(g => {
+          {sorted.map(g => {
+            const isCompleted = g.status === 'completed'
             const pct = g.linked_total > 0
               ? Math.round((g.linked_completed / g.linked_total) * 100)
               : 0
@@ -306,19 +316,32 @@ function GoalCoveragePanel({ coverage, orphanCount }: { coverage: GoalCoverageIt
             return (
               <div key={g.id}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-foreground truncate mr-2">{g.title}</span>
                   <span className={cn(
-                    "text-xs font-medium tabular-nums shrink-0",
-                    isEmpty || g.linked_completed === 0 ? "text-muted-foreground" : "text-foreground"
-                  )}>
-                    {g.linked_completed} / {g.linked_total}
-                  </span>
+                    "text-sm truncate mr-2",
+                    isCompleted ? "text-muted-foreground line-through" : "text-foreground"
+                  )}>{g.title}</span>
+                  {isCompleted ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium shrink-0" style={{ color: '#1D9E75' }}>
+                      <Check className="h-3.5 w-3.5" />
+                      Done
+                    </span>
+                  ) : (
+                    <span className={cn(
+                      "text-xs font-medium tabular-nums shrink-0",
+                      isEmpty || g.linked_completed === 0 ? "text-muted-foreground" : "text-foreground"
+                    )}>
+                      {g.linked_completed} / {g.linked_total}
+                    </span>
+                  )}
                 </div>
                 <div className="h-1.5 rounded-full bg-border overflow-hidden">
-                  {!isEmpty && (
+                  {(isCompleted || !isEmpty) && (
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
-                      style={{ width: `${pct}%` }}
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: isCompleted ? '100%' : `${pct}%`,
+                        backgroundColor: '#1D9E75',
+                      }}
                     />
                   )}
                 </div>

@@ -163,13 +163,13 @@ export function SignIn() {
             )}
 
             {mode === 'sign-up' && (
-              <div className="flex items-start gap-2 mb-6 mt-2">
+              <div className="flex items-center gap-2 mb-6 mt-2">
                 <input
                   type="checkbox"
                   id="terms"
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-1 w-4 h-4 rounded border-slate-300 text-slate-700 focus:ring-slate-500 cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 accent-[#5b738b] cursor-pointer"
                 />
                 <label htmlFor="terms" className="text-sm text-slate-600 leading-tight">
                   I agree to the <a href="https://knots.bot/terms" target="_blank" rel="noopener noreferrer" className="text-slate-900 font-medium hover:underline">Terms of Service</a> and <a href="https://knots.bot/privacy" target="_blank" rel="noopener noreferrer" className="text-slate-900 font-medium hover:underline">Privacy Policy</a>.

@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-  if (error) {
-    return NextResponse.redirect(`${origin}/?error=${encodeURIComponent(error.message)}`)
+    if (error) {
+      return NextResponse.redirect(`${origin}/?error=${encodeURIComponent(error.message)}`)
+    }
+  } catch (err: any) {
+    return NextResponse.redirect(`${origin}/?error=${encodeURIComponent(err.message || 'auth_callback_error')}`)
   }
 
   return response

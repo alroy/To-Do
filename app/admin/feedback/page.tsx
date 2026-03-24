@@ -19,9 +19,7 @@ interface FeedbackItem {
 
 const FILTER_OPTIONS = [
   { value: 'bug', label: 'Bugs' },
-  { value: 'feature', label: 'Features' },
   { value: 'improvement', label: 'Improvements' },
-  { value: 'question', label: 'Questions' },
 ]
 
 const STATUS_OPTIONS = ['new', 'reviewed', 'planned', 'fixed']

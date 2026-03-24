@@ -32,17 +32,17 @@ export function PendingApproval() {
     return (
       <main className="min-h-screen bg-background px-4 py-12">
         <div className="mx-auto max-w-xl">
-          <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-6">
-            <div className="text-center">
-              <div className="mb-4 flex justify-center">
+          <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-8">
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-8 max-w-md w-full mx-auto text-center">
+              <div className="mb-6 flex justify-center">
                 <img
-                  src="/lock.svg"
+                  src="/welcome.svg"
                   alt="Welcome"
-                  className="h-16 w-16 opacity-75"
+                  className="h-14 w-14"
                 />
               </div>
-              <h1 className="mb-2 text-2xl font-bold text-foreground">Welcome to Knots</h1>
-              <p className="mb-4 text-muted-foreground">
+              <h1 className="mb-2 text-2xl font-semibold text-gray-900">Welcome to Knots</h1>
+              <p className="mb-8 text-sm leading-relaxed text-gray-500">
                 Before we continue, please review and accept our{' '}
                 <a href="https://knots.bot/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
                   Terms of Service
@@ -53,25 +53,28 @@ export function PendingApproval() {
                 </a>
                 .
               </p>
+
+              {error && (
+                <p className="mb-4 text-center text-sm text-red-600">{error}</p>
+              )}
+
+              <Button className="w-full" onClick={handleAccept} disabled={accepting}>
+                {accepting ? 'Accepting…' : 'I Accept'}
+              </Button>
             </div>
 
-            {error && (
-              <p className="text-center text-sm text-red-600">{error}</p>
-            )}
-
-            <Button onClick={handleAccept} disabled={accepting}>
-              {accepting ? 'Accepting…' : 'I Accept'}
-            </Button>
-
-            <div className="flex flex-col items-center gap-2 pt-2">
+            <div className="flex flex-col items-center gap-2">
               {user?.email && (
                 <p className="text-sm text-muted-foreground">
                   Signed in as: <span className="font-medium">{user.email}</span>
                 </p>
               )}
-              <Button onClick={signOut} variant="ghost">
+              <button
+                onClick={signOut}
+                className="text-sm text-muted-foreground underline hover:text-foreground transition-colors"
+              >
                 Sign out
-              </Button>
+              </button>
             </div>
           </div>
         </div>

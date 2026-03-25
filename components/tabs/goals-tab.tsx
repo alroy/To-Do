@@ -26,7 +26,7 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editGoal, setEditGoal] = useState<Goal | null>(null)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailGoal, setDetailGoal] = useState<Goal | null>(null)
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({})
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const archivingIdRef = useRef<string | null>(null)
@@ -209,9 +209,8 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
                     key={goal.id}
                     goal={goal}
                     taskCount={taskCounts[goal.id] || 0}
-                    isExpanded={expandedId === goal.id}
                     isArchiving={goal.id === archivingId}
-                    onToggleExpand={() => setExpandedId(expandedId === goal.id ? null : goal.id)}
+                    onView={() => setDetailGoal(goal)}
                     onEdit={() => { setEditGoal(goal); setIsFormOpen(true) }}
                     onDelete={() => handleDelete(goal.id)}
                     onArchive={() => handleArchive(goal.id)}
@@ -258,8 +257,9 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
             }
             setIsFormOpen(false)
             setEditGoal(null)
+            setDetailGoal(null)
           }}
-          onClose={() => { setIsFormOpen(false); setEditGoal(null) }}
+          onClose={() => { setIsFormOpen(false); setEditGoal(null); setDetailGoal(null) }}
         />
       )}
 
@@ -270,18 +270,26 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
           onImported={() => { setShowTranscript(false); loadGoals() }}
         />
       )}
+
+      {/* Goal detail modal (view mode) */}
+      {detailGoal && !isFormOpen && (
+        <GoalDetailModal
+          goal={detailGoal}
+          onEdit={() => { setEditGoal(detailGoal); setIsFormOpen(true) }}
+          onClose={() => setDetailGoal(null)}
+        />
+      )}
     </>
   )
 }
 
 // --- Goal Card ---
 
-function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, onEdit, onDelete, onArchive }: {
+function GoalCard({ goal, taskCount, isArchiving, onView, onEdit, onDelete, onArchive }: {
   goal: Goal
   taskCount: number
-  isExpanded: boolean
   isArchiving?: boolean
-  onToggleExpand: () => void
+  onView: () => void
   onEdit: () => void
   onDelete: () => void
   onArchive: () => void
@@ -324,7 +332,7 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
         "group rounded-[24px] bg-card p-5 transition-[background-color,opacity] duration-200",
         !isCompleted && !isAtRisk && "hover:bg-accent-hover",
         isCompleted && "bg-accent-subtle opacity-75",
-        isAtRisk && "bg-red-50 dark:bg-red-950/30 hover:bg-red-100/80 dark:hover:bg-red-950/40",
+        isAtRisk && "bg-[#FFF5F5] dark:bg-red-950/30 hover:bg-red-100/80 dark:hover:bg-red-950/40",
         isArchiving && "animate-out fade-out slide-out-to-right duration-300 fill-mode-forwards",
         !isArchiving && "animate-in fade-in duration-300",
       )}
@@ -340,29 +348,24 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
           {isCompleted && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
         </button>
 
-        {/* Content */}
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={onToggleExpand}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn(
-              "text-base font-semibold leading-snug text-foreground",
-              isCompleted && "text-muted-foreground line-through decoration-muted-foreground/50"
-            )}>
-              {goal.title}
-            </span>
-            <span className={cn(
-              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-              PRIORITY_COLORS[goal.priority]
-            )}>
-              {PRIORITY_LABELS[goal.priority]}
-            </span>
-          </div>
+        {/* Content — click opens detail modal */}
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onView}>
+          <p className={cn(
+            "text-base font-semibold leading-snug text-foreground",
+            isCompleted && "text-muted-foreground line-through decoration-muted-foreground/50"
+          )}>
+            {goal.title}
+          </p>
+          <span className={cn(
+            "inline-block mt-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            PRIORITY_COLORS[goal.priority]
+          )}>
+            {PRIORITY_LABELS[goal.priority]}
+          </span>
           <span className="block text-xs text-muted-foreground mt-0.5">
             {goal.deadline ? `Due ${goal.deadline}` : formatRelativeTime(goal.createdAt)}
             {taskCount > 0 && <> · {taskCount} linked {taskCount === 1 ? 'task' : 'tasks'}</>}
           </span>
-          {goal.description && !isExpanded && (
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{goal.description}</p>
-          )}
         </div>
 
         {/* Actions */}
@@ -394,25 +397,77 @@ function GoalCard({ goal, taskCount, isExpanded, isArchiving, onToggleExpand, on
           )}
         </CardActionGroup>
       </div>
-
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="mt-3 ml-7 space-y-2.5 text-sm">
-          {goal.description && (
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Description</span>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{goal.description}</p>
-            </div>
-          )}
-          {goal.risks && (
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Dependencies & Risks</span>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{goal.risks}</p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
+  )
+}
+
+// --- Goal Detail Modal (View Mode) ---
+
+function GoalDetailModal({ goal, onEdit, onClose }: {
+  goal: Goal
+  onEdit: () => void
+  onClose: () => void
+}) {
+  const fixedStyle: React.CSSProperties = {
+    transform: "translateZ(0)",
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" style={fixedStyle} onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-x-4 z-50 mx-auto max-w-md"
+        style={{ ...fixedStyle, top: "50%", transform: "translateY(-50%) translateZ(0)", maxHeight: "calc(100dvh - 2rem)", overflowY: "auto" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Goal details"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-background rounded-[32px] shadow-xl p-6">
+          {/* Title */}
+          <h2 className="text-lg font-bold text-foreground mb-1">{goal.title}</h2>
+
+          {/* Priority + Deadline */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              PRIORITY_COLORS[goal.priority]
+            )}>
+              {PRIORITY_LABELS[goal.priority]}
+            </span>
+            {goal.deadline && (
+              <span className="text-xs text-slate-400">Due {goal.deadline}</span>
+            )}
+          </div>
+
+          {/* Description */}
+          {goal.description && (
+            <div className="mb-4">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">DESCRIPTION</span>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{goal.description}</p>
+            </div>
+          )}
+
+          {/* Dependencies & Risks */}
+          {goal.risks && (
+            <div className="mb-4">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">DEPENDENCIES & RISKS</span>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{goal.risks}</p>
+            </div>
+          )}
+
+          {/* Edit button */}
+          <button
+            onClick={() => { onEdit(); onClose() }}
+            className="w-full h-10 rounded-xl bg-[#4A7188] hover:bg-[#3d6175] text-white text-sm font-medium transition-colors active:scale-[0.98] duration-75"
+          >
+            EDIT
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
 

@@ -1089,7 +1089,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
         showSnoozeMenu && "z-10",
       )}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3 md:gap-4">
         {/* Done/Reopen button */}
         {isDone ? (
           <button
@@ -1109,7 +1109,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
 
         {/* Content */}
         <div
-          className="min-w-0 flex-1 pr-8 cursor-pointer"
+          className="min-w-0 flex-1 md:pr-12 cursor-pointer"
           onClick={() => {
             if (onEdit) {
               onEdit()
@@ -1135,15 +1135,48 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
             </p>
           )}
 
-          {/* Metadata row — origin-aware */}
-          <InboxMetadataRow item={item} />
+          {/* Metadata row + mobile action icons */}
+          <div className="flex items-center mt-2">
+            <div className="flex-1 min-w-0">
+              <InboxMetadataRow item={item} />
+            </div>
+            {/* Mobile inline icons — sit on metadata row, hidden on desktop */}
+            {!isDone && (
+              <div className="flex md:hidden shrink-0 items-center gap-0.5 ml-2 relative">
+                {onSnooze && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowSnoozeMenu(!showSnoozeMenu) }}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label="Snooze"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </button>
+                )}
+                {onConvertToGoal && !isConfirmingConvert && (
+                  <button
+                    onClick={handleConvertClick}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label="Convert to goal"
+                  >
+                    <Target className="h-4 w-4" />
+                  </button>
+                )}
+                {showSnoozeMenu && onSnooze && (
+                  <SnoozeMenu
+                    onSnooze={(until) => onSnooze(until)}
+                    onClose={() => setShowSnoozeMenu(false)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
 
-          {/* Mobile-only "Create Goal?" confirmation */}
+          {/* Mobile-only "Create Goal?" full-width confirmation */}
           {onConvertToGoal && isConfirmingConvert && (
             <button
               ref={convertBtnMobileRef}
               onClick={handleConvertClick}
-              className="md:hidden w-full mt-4 flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 text-sm font-medium text-foreground transition-colors"
+              className="md:hidden w-full mt-4 flex items-center justify-between p-3 rounded-xl bg-slate-50 text-sm font-medium text-foreground transition-colors"
               aria-label="Confirm convert to goal"
             >
               Create Goal?
@@ -1159,8 +1192,8 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
           )}
         </div>
 
-        {/* Action buttons */}
-        <CardActionGroup>
+        {/* Action buttons — desktop only */}
+        <CardActionGroup className="hidden md:flex">
           {/* Snooze button */}
           {!isDone && onSnooze && (
             <button
@@ -1199,7 +1232,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
             <button
               ref={convertBtnRef}
               onClick={handleConvertClick}
-              className="hidden md:inline-flex shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+              className="shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
               aria-label="Confirm convert to goal"
             >
               Create Goal?
@@ -1217,7 +1250,7 @@ function InboxMetadataRow({ item }: { item: InboxItem }) {
   if (item.source === 'manual') {
     // Manual tasks: clipboard icon + "Manually created" + timestamp
     return (
-      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap">
         <ClipboardList className="h-3 w-3 text-muted-foreground/70 shrink-0" />
         <span className="text-xs text-muted-foreground/70">Manually created</span>
         {item.createdAt && (
@@ -1240,7 +1273,7 @@ function InboxMetadataRow({ item }: { item: InboxItem }) {
           ? '/monday-icon.svg'
           : '/granola-icon.svg'
     return (
-      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap">
         <img src={sourceIcon} alt="" className="h-3 w-3 shrink-0" aria-hidden="true" />
         {item.messageFrom && (
           <span className="text-xs text-muted-foreground">{item.messageFrom}</span>
@@ -1275,7 +1308,7 @@ function InboxMetadataRow({ item }: { item: InboxItem }) {
         sourceType={item.source}
         authorName={authorName}
         permalink={item.sourceUrl || item.messageLink || undefined}
-        className="mt-2"
+        className=""
       />
     )
   }

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { cn, formatRelativeTime, groupByPriority } from "@/lib/utils"
-import { Target, Trash2, Pencil, LayoutGrid, X, FileUp, Archive, BarChart3 } from "lucide-react"
+import { Target, Trash2, LayoutGrid, X, FileUp, Archive, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CardActionGroup } from "@/components/ui/card-action-group"
@@ -211,7 +211,6 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
                     taskCount={taskCounts[goal.id] || 0}
                     isArchiving={goal.id === archivingId}
                     onView={() => setDetailGoal(goal)}
-                    onEdit={() => { setEditGoal(goal); setIsFormOpen(true) }}
                     onDelete={() => handleDelete(goal.id)}
                     onArchive={() => handleArchive(goal.id)}
                   />
@@ -285,12 +284,11 @@ export function GoalsTab({ contentColumnRef }: GoalsTabProps) {
 
 // --- Goal Card ---
 
-function GoalCard({ goal, taskCount, isArchiving, onView, onEdit, onDelete, onArchive }: {
+function GoalCard({ goal, taskCount, isArchiving, onView, onDelete, onArchive }: {
   goal: Goal
   taskCount: number
   isArchiving?: boolean
   onView: () => void
-  onEdit: () => void
   onDelete: () => void
   onArchive: () => void
 }) {
@@ -370,13 +368,6 @@ function GoalCard({ goal, taskCount, isArchiving, onView, onEdit, onDelete, onAr
 
         {/* Actions */}
         <CardActionGroup>
-          <button
-            onClick={onEdit}
-            className="shrink-0 flex items-center justify-center w-11 h-11 rounded-md transition-[color,opacity] text-slate-200 hover:text-slate-400 opacity-60 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:hover:opacity-100 hover:opacity-100"
-            aria-label="Edit goal"
-          >
-            <Pencil className="h-5 w-5" />
-          </button>
           {!confirmingDelete && (
             <button
               onClick={handleDeleteClick}

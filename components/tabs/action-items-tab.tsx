@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase-browser"
 import { useAuth } from "@/contexts/auth-context"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { cn, formatRelativeTime } from "@/lib/utils"
-import { Check, Target, MessageSquare, Video, RefreshCw, Clock, ClipboardList, Search, ArrowDownNarrowWide, ArrowUpNarrowWide, X } from "lucide-react"
+import { Check, Target, MessageSquare, Video, RefreshCw, Clock, ClipboardList, Search, ArrowDownNarrowWide, ArrowUpNarrowWide, X, ChevronRight } from "lucide-react"
 import { KnotForm, type EditTask, type GoalOption } from "@/components/knot-form"
 import { ProvenanceRow } from "@/components/ui/provenance-row"
 import { TaskMetadata, isSlackMetadata, isGranolaMetadata } from "@/lib/types"
@@ -1041,6 +1041,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
   const [isConfirmingConvert, setIsConfirmingConvert] = useState(false)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const convertBtnRef = useRef<HTMLButtonElement>(null)
+  const convertBtnMobileRef = useRef<HTMLButtonElement>(null)
   const isDone = item.origin === 'action-item'
     ? (item.status === 'done' || item.status === 'dismissed')
     : item.status === 'completed'
@@ -1057,7 +1058,10 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
   useEffect(() => {
     if (!isConfirmingConvert) return
     const handler = (e: MouseEvent) => {
-      if (convertBtnRef.current && !convertBtnRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const insideDesktop = convertBtnRef.current?.contains(target)
+      const insideMobile = convertBtnMobileRef.current?.contains(target)
+      if (!insideDesktop && !insideMobile) {
         setIsConfirmingConvert(false)
       }
     }
@@ -1105,7 +1109,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
 
         {/* Content */}
         <div
-          className="min-w-0 flex-1 pr-6 cursor-pointer"
+          className="min-w-0 flex-1 pr-8 cursor-pointer"
           onClick={() => {
             if (onEdit) {
               onEdit()
@@ -1133,6 +1137,19 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
 
           {/* Metadata row — origin-aware */}
           <InboxMetadataRow item={item} />
+
+          {/* Mobile-only "Create Goal?" confirmation */}
+          {onConvertToGoal && isConfirmingConvert && (
+            <button
+              ref={convertBtnMobileRef}
+              onClick={handleConvertClick}
+              className="md:hidden w-full mt-4 flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 text-sm font-medium text-foreground transition-colors"
+              aria-label="Confirm convert to goal"
+            >
+              Create Goal?
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
 
           {/* Expanded: raw context (action items only) */}
           {isExpanded && item.rawContext && (
@@ -1182,7 +1199,7 @@ function InboxCard({ item, isExpanded, isExiting, onToggleExpand, onDone, onReop
             <button
               ref={convertBtnRef}
               onClick={handleConvertClick}
-              className="shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+              className="hidden md:inline-flex shrink-0 px-2 py-1 rounded-md text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
               aria-label="Confirm convert to goal"
             >
               Create Goal?

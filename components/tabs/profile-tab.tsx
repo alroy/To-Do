@@ -30,12 +30,23 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
   const [feedbackType, setFeedbackType] = useState<'bug' | 'improvement' | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [editName, setEditName] = useState('')
+  const [pendingCount, setPendingCount] = useState(0)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
     if (user) loadProfile()
   }, [user])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/admin/pending-users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) setPendingCount(data.users.length)
+      })
+      .catch(() => {})
+  }, [isAdmin])
 
   const loadProfile = async () => {
     if (!user) return
@@ -316,7 +327,14 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
                 href="/admin"
                 className="flex justify-between items-center w-full p-4 text-slate-800 dark:text-slate-200 font-medium text-sm hover:bg-slate-200/60 dark:hover:bg-slate-700/50 transition-colors border-b border-gray-200/60 dark:border-gray-700/60"
               >
-                User approvals
+                <span className="flex items-center gap-2">
+                  User approvals
+                  {pendingCount > 0 && (
+                    <span className="bg-[#F0F4F8] text-slate-600 font-semibold text-[11px] px-2 py-0.5 rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               </a>
               <a

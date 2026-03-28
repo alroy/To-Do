@@ -24,7 +24,6 @@ export function DeleteAccountModal({ onClose }: DeleteAccountModalProps) {
 
   // Questionnaire state
   const [reason, setReason] = useState<string>("")
-  const [recommendScore, setRecommendScore] = useState<number | null>(null)
   const [finalNote, setFinalNote] = useState("")
 
   // Flow state
@@ -47,7 +46,6 @@ export function DeleteAccountModal({ onClose }: DeleteAccountModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reason,
-          recommendScore,
           finalNote: finalNote.trim() || null,
         }),
       })
@@ -130,33 +128,6 @@ export function DeleteAccountModal({ onClose }: DeleteAccountModalProps) {
                       <span className="text-sm text-foreground">{r}</span>
                     </label>
                   ))}
-                </div>
-              </div>
-
-              {/* NPS */}
-              <div className="mb-5">
-                <p className="text-sm font-medium text-foreground mb-2.5">
-                  Would you recommend us to a friend?
-                </p>
-                <div className="flex gap-1">
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setRecommendScore(n)}
-                      className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
-                        recommendScore === n
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-accent text-muted-foreground hover:bg-accent-hover"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-[10px] text-muted-foreground">Not likely</span>
-                  <span className="text-[10px] text-muted-foreground">Very likely</span>
                 </div>
               </div>
 

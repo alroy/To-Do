@@ -399,6 +399,16 @@ function GoalDetailModal({ goal, onEdit, onClose }: {
     backfaceVisibility: "hidden",
   }
 
+  // Urgency: deadline within 2 days (mirrors GoalCard logic)
+  const isAtRisk = (() => {
+    if (!goal.deadline) return false
+    const deadlineDate = new Date(goal.deadline + 'T23:59:59')
+    const now = new Date()
+    const diffMs = deadlineDate.getTime() - now.getTime()
+    const diffDays = diffMs / (1000 * 60 * 60 * 24)
+    return diffDays <= 2
+  })()
+
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" style={fixedStyle} onClick={onClose} aria-hidden="true" />
@@ -410,21 +420,41 @@ function GoalDetailModal({ goal, onEdit, onClose }: {
         aria-label="Goal details"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-background rounded-[32px] shadow-xl p-6">
-          {/* Title */}
-          <h2 className="text-lg font-bold text-foreground mb-1">{goal.title}</h2>
+        <div className={cn(
+          "bg-background rounded-[32px] shadow-xl p-6 pb-12",
+          isAtRisk && "border-t-2 border-rose-300"
+        )}>
+          {/* Header area — tinted when urgent */}
+          <div className={cn(
+            "-mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-[32px]",
+            isAtRisk && "bg-rose-50 dark:bg-red-950/30"
+          )}>
+            {/* Title + Edit button */}
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-lg font-bold text-foreground">{goal.title}</h2>
+              <button
+                onClick={() => { onEdit(); onClose() }}
+                className="shrink-0 text-sm font-medium text-[#50768C] hover:text-[#3d6175] transition-colors p-1 -mr-1"
+              >
+                Edit
+              </button>
+            </div>
 
-          {/* Priority + Deadline */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className={cn(
-              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-              PRIORITY_COLORS[goal.priority]
-            )}>
-              {PRIORITY_LABELS[goal.priority]}
-            </span>
-            {goal.deadline && (
-              <span className="text-xs text-slate-400">Due {goal.deadline}</span>
-            )}
+            {/* Priority + Deadline */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className={cn(
+                "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                PRIORITY_COLORS[goal.priority]
+              )}>
+                {PRIORITY_LABELS[goal.priority]}
+              </span>
+              {goal.deadline && (
+                <span className={cn(
+                  "text-xs",
+                  isAtRisk ? "text-rose-500" : "text-slate-400"
+                )}>Due {goal.deadline}</span>
+              )}
+            </div>
           </div>
 
           {/* Description */}
@@ -442,14 +472,6 @@ function GoalDetailModal({ goal, onEdit, onClose }: {
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{goal.risks}</p>
             </div>
           )}
-
-          {/* Edit button */}
-          <button
-            onClick={() => { onEdit(); onClose() }}
-            className="w-full h-10 rounded-xl bg-[#4A7188] hover:bg-[#3d6175] text-white text-sm font-medium transition-colors active:scale-[0.98] duration-75"
-          >
-            EDIT
-          </button>
         </div>
       </div>
     </>

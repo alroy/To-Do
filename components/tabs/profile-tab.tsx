@@ -30,12 +30,23 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
   const [feedbackType, setFeedbackType] = useState<'bug' | 'improvement' | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [editName, setEditName] = useState('')
+  const [pendingCount, setPendingCount] = useState(0)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
     if (user) loadProfile()
   }, [user])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/admin/pending-users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) setPendingCount(data.users.length)
+      })
+      .catch(() => {})
+  }, [isAdmin])
 
   const loadProfile = async () => {
     if (!user) return
@@ -317,7 +328,14 @@ export function ProfileTab({ contentColumnRef }: ProfileTabProps) {
                 className="flex justify-between items-center w-full p-4 text-slate-800 dark:text-slate-200 font-medium text-sm hover:bg-slate-200/60 dark:hover:bg-slate-700/50 transition-colors border-b border-gray-200/60 dark:border-gray-700/60"
               >
                 User approvals
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="flex items-center gap-2">
+                  {pendingCount > 0 && (
+                    <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-[10px] font-bold leading-none">
+                      {pendingCount}
+                    </span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </span>
               </a>
               <a
                 href="/admin/feedback"

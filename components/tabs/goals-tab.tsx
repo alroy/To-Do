@@ -420,41 +420,32 @@ function GoalDetailModal({ goal, onEdit, onClose }: {
         aria-label="Goal details"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={cn(
-          "bg-background rounded-[32px] shadow-xl p-6 pb-12",
-          isAtRisk && "border-t-2 border-rose-300"
-        )}>
-          {/* Header area — tinted when urgent */}
-          <div className={cn(
-            "-mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-[32px]",
-            isAtRisk && "bg-rose-50 dark:bg-red-950/30"
-          )}>
-            {/* Title + Edit button */}
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-bold text-foreground">{goal.title}</h2>
-              <button
-                onClick={() => { onEdit(); onClose() }}
-                className="shrink-0 text-sm font-medium text-[#50768C] hover:text-[#3d6175] transition-colors p-1 -mr-1"
-              >
-                Edit
-              </button>
-            </div>
+        <div className="bg-background rounded-[32px] shadow-xl p-6 pb-12">
+          {/* Title + Edit button */}
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-bold leading-tight text-foreground">{goal.title}</h2>
+            <button
+              onClick={() => { onEdit(); onClose() }}
+              className="shrink-0 text-sm font-medium text-slate-400 hover:text-slate-500 transition-colors p-1 -mr-1"
+            >
+              Edit
+            </button>
+          </div>
 
-            {/* Priority + Deadline */}
-            <div className="flex items-center gap-2 mt-1">
+          {/* Priority + Deadline */}
+          <div className="flex items-center gap-2 mt-1 mb-6">
+            <span className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              isAtRisk ? "text-rose-500 bg-rose-50 dark:text-rose-400 dark:bg-rose-950" : PRIORITY_COLORS[goal.priority]
+            )}>
+              {PRIORITY_LABELS[goal.priority]}
+            </span>
+            {goal.deadline && (
               <span className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                PRIORITY_COLORS[goal.priority]
-              )}>
-                {PRIORITY_LABELS[goal.priority]}
-              </span>
-              {goal.deadline && (
-                <span className={cn(
-                  "text-xs",
-                  isAtRisk ? "text-rose-500" : "text-slate-400"
-                )}>Due {goal.deadline}</span>
-              )}
-            </div>
+                "text-xs",
+                isAtRisk ? "text-rose-500" : "text-slate-400"
+              )}>Due {goal.deadline}</span>
+            )}
           </div>
 
           {/* Description */}

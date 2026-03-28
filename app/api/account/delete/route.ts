@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const userId = user.id
 
-  let body: { reason?: string; recommendScore?: number; finalNote?: string } = {}
+  let body: { reason?: string; finalNote?: string } = {}
   try {
     body = await request.json()
   } catch {
@@ -23,10 +23,9 @@ export async function POST(request: NextRequest) {
   const adminClient = createAdminClient()
 
   // 1. Store anonymous churn insight (no user_id)
-  if (body.reason || body.recommendScore || body.finalNote) {
+  if (body.reason || body.finalNote) {
     await adminClient.from('churn_insights').insert({
       reason: body.reason || null,
-      recommend_score: body.recommendScore || null,
       final_note: body.finalNote || null,
     })
   }

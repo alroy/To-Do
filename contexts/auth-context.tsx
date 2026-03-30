@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { error: insertError } = await supabase
       .from('user_profile')
-      .insert({ user_id: userId, name, approved: isAutoApproved })
+      .insert({ user_id: userId, name, approved: isAutoApproved, onboarded: false })
 
     if (insertError) {
       // Unique constraint violation — trigger won the race, re-read the row

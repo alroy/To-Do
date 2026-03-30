@@ -48,15 +48,15 @@ function PageContent() {
   const contentColumnRef = useRef<HTMLDivElement>(null)
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null)
 
-  // Check if user needs onboarding
-  // The DB trigger pre-fills name from Google OAuth, so name alone isn't enough —
-  // also check has_accepted_terms which is set when onboarding completes.
+  // Check if user needs onboarding via the `onboarded` DB column.
+  // Existing users are grandfathered (onboarded defaults TRUE).
+  // New users are set to FALSE by the DB trigger and flipped to TRUE on completion.
   useEffect(() => {
     if (!user || !isApproved) return
     const supabase = createClient()
     supabase
       .from('user_profile')
-      .select('name')
+      .select('onboarded')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -65,7 +65,7 @@ function PageContent() {
           setNeedsOnboarding(false)
           return
         }
-        setNeedsOnboarding(!data?.name || !user.user_metadata?.has_accepted_terms)
+        setNeedsOnboarding(data?.onboarded === false)
       })
   }, [user, isApproved])
 
@@ -127,8 +127,10 @@ function PageContent() {
 
   if (needsOnboarding) {
     return <Onboarding onComplete={async () => {
-      const supabase = createClient()
-      await supabase.auth.updateUser({ data: { has_accepted_terms: true } })
+      if (user) {
+        const supabase = createClient()
+        await supabase.from('user_profile').update({ onboarded: true }).eq('user_id', user.id)
+      }
       setNeedsOnboarding(false)
     }} />
   }

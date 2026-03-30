@@ -48,15 +48,15 @@ function PageContent() {
   const contentColumnRef = useRef<HTMLDivElement>(null)
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null)
 
-  // Check if user needs onboarding via the `onboarded` DB column.
-  // Existing users are grandfathered (onboarded defaults TRUE).
-  // New users are set to FALSE by the DB trigger and flipped to TRUE on completion.
+  // Check if user needs onboarding (no name set in profile).
+  // The DB trigger creates profiles with name = '' so new users always need onboarding.
+  // Existing users already have their name set, so they skip it.
   useEffect(() => {
     if (!user || !isApproved) return
     const supabase = createClient()
     supabase
       .from('user_profile')
-      .select('onboarded')
+      .select('name')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -65,7 +65,7 @@ function PageContent() {
           setNeedsOnboarding(false)
           return
         }
-        setNeedsOnboarding(data?.onboarded === false)
+        setNeedsOnboarding(!data?.name)
       })
   }, [user, isApproved])
 
@@ -126,13 +126,7 @@ function PageContent() {
   }
 
   if (needsOnboarding) {
-    return <Onboarding onComplete={async () => {
-      if (user) {
-        const supabase = createClient()
-        await supabase.from('user_profile').update({ onboarded: true }).eq('user_id', user.id)
-      }
-      setNeedsOnboarding(false)
-    }} />
+    return <Onboarding onComplete={() => setNeedsOnboarding(false)} />
   }
 
   return (

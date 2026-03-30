@@ -1,11 +1,9 @@
--- Migration: Auto-approve @zencity.io users + onboarding tracking
+-- Migration: Auto-approve @zencity.io users on registration
 -- Zencity employees should skip the "Registration Pending" wait.
--- New users must complete onboarding before accessing the app.
+-- IMPORTANT: Trigger no longer pre-fills name from Google — onboarding sets it.
 
--- 1. Add onboarded column (defaults TRUE so existing users are grandfathered in)
-ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT TRUE;
-
--- 2. Update the trigger to auto-approve @zencity.io emails and mark new users as not onboarded
+-- 1. Update the trigger to auto-approve @zencity.io emails
+--    and leave name empty so new users are routed through onboarding.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -13,23 +11,22 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  INSERT INTO public.user_profile (user_id, name, approved, onboarded)
+  INSERT INTO public.user_profile (user_id, name, approved)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    '',
     CASE
       WHEN NEW.email = 'gil.alroy@gmail.com' THEN TRUE
       WHEN NEW.email LIKE '%@zencity.io' THEN TRUE
       ELSE FALSE
-    END,
-    FALSE
+    END
   )
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
 $$;
 
--- 3. Retroactively approve any existing @zencity.io users still pending
+-- 2. Retroactively approve any existing @zencity.io users still pending
 UPDATE user_profile SET approved = TRUE
 WHERE approved = FALSE
   AND user_id IN (

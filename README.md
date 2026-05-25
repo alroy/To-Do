@@ -4,6 +4,10 @@ Knots is a task management app built with Next.js and Supabase. It features drag
 
 **Live:** https://app.knots.bot/
 
+## Why I built it
+
+Knots explores a more structured approach to personal task management: combining a fast daily task list, a backlog, goals, and external task ingestion into one workflow. The project focuses on practical product decisions such as reducing task capture friction, supporting real-time updates across devices, and keeping personal productivity data isolated per user.
+
 ## Tech Stack
 
 - **Framework:** Next.js 14 (App Router, TypeScript)
@@ -24,8 +28,8 @@ Knots is a task management app built with Next.js and Supabase. It features drag
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/alroy/To-Do.git
-   cd To-Do
+   git clone https://github.com/alroy/Knots.git
+   cd Knots
    ```
 
 2. **Install dependencies:**

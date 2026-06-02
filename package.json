@@ -21,7 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
-    "next": "16.1.4",
+    "next": "16.2.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "server-only": "^0.0.1",
@@ -42,6 +42,6 @@
     "jsdom": "^27.4.0",
     "tailwindcss": "^4",
     "typescript": "5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }
